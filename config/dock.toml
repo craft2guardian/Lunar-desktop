@@ -1,0 +1,27 @@
+# Dock entries, shown left to right in this order. Edit freely; restart the shell to apply.
+#
+#   name    label shown as a tooltip (and as the letter on the placeholder tile)
+#   icon    optional PNG. Relative paths are looked up next to this file and in the
+#           project folder (the one containing config/), e.g. assets/dock-icons/files.png.
+#           "~/" and absolute paths work too. If it is missing or unreadable, the
+#           installed application's own icon is used, then a neutral lettered tile.
+#   command the program to run, with optional arguments. It is NOT run through a
+#           shell: quotes group words, but pipes, $VARS and ~ are not interpreted.
+#
+# These are examples only; use whatever is installed on your system
+# (e.g. nautilus / thunar, konsole / gnome-terminal / foot / kitty).
+
+[[app]]
+name = "Finder"
+icon = "assets/dock-icons/files.png"
+command = "dolphin"
+
+[[app]]
+name = "Browser"
+icon = "assets/dock-icons/browser.png"
+command = "firefox"
+
+[[app]]
+name = "Terminal"
+icon = "assets/dock-icons/terminal.png"
+command = "konsole"
