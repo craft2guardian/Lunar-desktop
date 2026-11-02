@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # sonoma-desktop
 
 A minimal macOS Sonoma-inspired desktop shell for Linux, written in Rust.
@@ -146,3 +147,6 @@ src/style.rs      the few lines of CSS that remove default window chrome
 assets/           bundled wallpaper, dock-icons/ (your icons)
 scripts/          wallpaper generator, nested-session launcher
 ```
+=======
+# Sonoma-desktop
+>>>>>>> c254a1796cf7504c9dbcbf1e14beb0e739ddcfe0
