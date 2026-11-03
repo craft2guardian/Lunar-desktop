@@ -13,6 +13,7 @@ mod menubar;
 mod preferences;
 mod settings;
 mod style;
+mod thumbnail;
 mod wallpaper;
 
 use gtk::glib;

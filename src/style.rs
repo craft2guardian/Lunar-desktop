@@ -369,6 +369,52 @@ window.sonoma-dock {
 .dock-item-minimized .dock-running-indicator {
     opacity: 1;
 }
+/* Minimised windows, shown beside the Trash when the Minimize-into-icon
+   setting is off: a small window with the app icon as a badge. */
+.dock-item.dock-minimized-window {
+    background: none;
+    box-shadow: none;
+    border-radius: 6px;
+}
+.dock-minimized-thumb {
+    margin: 2px;
+    background-image: linear-gradient(#f7f8fa, #d8dbe1);
+    border: 1px solid rgba(0, 0, 0, 0.28);
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+}
+.dock-minimized-picture {
+    border-radius: 4px;
+}
+.dock-minimized-titlebar {
+    padding: 3px 5px;
+    background-color: rgba(0, 0, 0, 0.10);
+    border-radius: 5px 5px 0 0;
+}
+.dock-minimized-dot {
+    min-width: 4px;
+    min-height: 4px;
+    background-color: rgba(0, 0, 0, 0.35);
+    border-radius: 50%;
+}
+.dock-minimized-letter {
+    min-width: 18px;
+    min-height: 18px;
+    font-size: 11px;
+    font-weight: 600;
+    background-image: linear-gradient(#b3b8c2, #8a909c);
+    border-radius: 22%;
+}
+.dark-mode .dock-minimized-thumb {
+    background-image: linear-gradient(#4b4e56, #34363c);
+    border-color: rgba(255, 255, 255, 0.22);
+}
+.dark-mode .dock-minimized-titlebar {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+.dark-mode .dock-minimized-dot {
+    background-color: rgba(255, 255, 255, 0.42);
+}
 /* Neutral lettered tile when no icon is available. */
 .dock-item.dock-placeholder {
     background-image: linear-gradient(#b3b8c2, #8a909c);

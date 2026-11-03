@@ -150,3 +150,16 @@ scripts/          wallpaper generator, nested-session launcher
 =======
 # Sonoma-desktop
 >>>>>>> c254a1796cf7504c9dbcbf1e14beb0e739ddcfe0
+
+
+## Minimised-window thumbnails
+
+With **Settings → Desktop & Dock → Minimize windows into application icon** off,
+each minimised window gets its own tile between the Dock separator and the Trash,
+showing a thumbnail of the window with the app icon as a badge. Thumbnails come
+from KWin's screenshot interface, which only answers apps that declare it in
+their desktop file. Run `scripts/install-thumbnail-permission.sh` once (pass the
+path of the binary you run) and restart the shell. Without it the tile shows a
+placeholder card instead. KWin cannot capture a window once it is minimised, so
+the Dock refreshes a thumbnail of each visible window about every 1.5 seconds
+while the switch is off and shows the latest one.

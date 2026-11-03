@@ -4,6 +4,10 @@
 #[path = "../config.rs"]
 #[allow(dead_code)]
 mod config;
+/// `kwin_windows` recognises the shell's own Settings window by its title.
+mod settings {
+    pub const WINDOW_TITLE: &str = "System Settings";
+}
 #[path = "../kwin_windows.rs"]
 mod kwin_windows;
 

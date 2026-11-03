@@ -11,6 +11,9 @@ pub struct Preferences {
     pub dock_size: f64,
     pub dock_auto_hide: bool,
     pub dark_mode: bool,
+    /// On: a minimised window disappears into its application's Dock icon.
+    /// Off: it gets its own thumbnail tile on the right of the Dock.
+    pub minimize_into_icon: bool,
 }
 
 impl Default for Preferences {
@@ -19,6 +22,7 @@ impl Default for Preferences {
             dock_size: 50.0,
             dock_auto_hide: false,
             dark_mode: false,
+            minimize_into_icon: true,
         }
     }
 }
@@ -129,6 +133,10 @@ pub fn set_dock_auto_hide(value: bool) {
     update(|preferences| preferences.dock_auto_hide = value);
 }
 
+pub fn set_minimize_into_icon(value: bool) {
+    update(|preferences| preferences.minimize_into_icon = value);
+}
+
 pub fn set_dark_mode(value: bool, app: &gtk::Application) {
     update(|preferences| preferences.dark_mode = value);
     apply_dark_mode_to_open_windows(app);
@@ -229,6 +237,10 @@ fn load() -> Preferences {
             .get("dark_mode")
             .and_then(toml::Value::as_bool)
             .unwrap_or(false),
+        minimize_into_icon: table
+            .get("minimize_into_icon")
+            .and_then(toml::Value::as_bool)
+            .unwrap_or(true),
     }
 }
 
@@ -237,8 +249,11 @@ fn save(preferences: Preferences) -> Result<(), String> {
     let parent = path.parent().ok_or("invalid settings path")?;
     std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     let mut contents = format!(
-        "dock_size = {}\ndock_auto_hide = {}\ndark_mode = {}\n",
-        preferences.dock_size, preferences.dock_auto_hide, preferences.dark_mode
+        "dock_size = {}\ndock_auto_hide = {}\ndark_mode = {}\nminimize_into_icon = {}\n",
+        preferences.dock_size,
+        preferences.dock_auto_hide,
+        preferences.dark_mode,
+        preferences.minimize_into_icon
     );
     if let Some(wallpaper) = wallpaper_path() {
         // A TOML string, so quotes and backslashes in the path are escaped.

@@ -548,7 +548,14 @@ fn build_page(name: &str, app: &gtk::Application) -> gtk::ScrolledWindow {
             sliders.append(&slider_column("Size", &size, "Small", "Large"));
             sliders.append(&slider_column("Magnification", &magnification, "Off", "Large"));
 
-            let (minimize_into_icon, _) = switch_row("Minimize windows into application icon", None, false);
+            let (minimize_into_icon, minimize_switch) = switch_row(
+                "Minimize windows into application icon",
+                None,
+                prefs.minimize_into_icon,
+            );
+            minimize_switch.connect_active_notify(|switch| {
+                crate::preferences::set_minimize_into_icon(switch.is_active());
+            });
             let (animate, _) = switch_row("Animate opening applications", None, true);
             let (autohide_row, autohide) = switch_row("Automatically hide and show the Dock", None, prefs.dock_auto_hide);
             autohide.connect_active_notify(|switch| {

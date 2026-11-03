@@ -16,6 +16,7 @@ use std::{
 use crate::context_menu::ContextMenu;
 use crate::kde_shell::{self, Role};
 use crate::kwin_windows::{self, KWinWindows, WindowSnapshot};
+use crate::thumbnail::Thumbnailer;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
 use gtk::{gdk, gio, glib};
@@ -269,6 +270,17 @@ fn settings_window_action(action: &str) {
     };
     match action {
         "activate" => crate::settings::present(&app),
+        // The Dock icon was clicked while minimised windows live in their own
+        // Dock tiles: raise the window only if it is not minimised.
+        "activate-visible" => {
+            let minimized = crate::settings::find_window(&app)
+                .and_then(|window| window.surface())
+                .and_then(|surface| surface.downcast::<gdk::Toplevel>().ok())
+                .is_some_and(|toplevel| toplevel.state().contains(gdk::ToplevelState::MINIMIZED));
+            if !minimized {
+                crate::settings::present(&app);
+            }
+        }
         "hide" => {
             if let Some(window) = crate::settings::find_window(&app) {
                 window.minimize();
@@ -480,6 +492,13 @@ if (action === "activate") {{
         window.minimized = false;
         workspace.activeWindow = window;
     }}
+}} else if (action === "activate-visible") {{
+    // Minimised windows have their own Dock tiles: leave them minimised.
+    const window = matches.find(function (candidate) {{ return candidate.active; }})
+        || matches.find(function (candidate) {{ return !candidate.minimized; }});
+    if (window && !window.active) {{
+        workspace.activeWindow = window;
+    }}
 }} else if (action === "hide") {{
     matches.forEach(function (window) {{ window.minimized = true; }});
 }} else if (action === "quit") {{
@@ -623,6 +642,13 @@ const layouts = {
 
 if (action === "minimise") {
     if (target && target.minimizable !== false) target.minimized = true;
+} else if (action === "restore") {
+    // Only ever the window that was asked for, never the active-window fallback.
+    const wanted = wantedId ? all.find(function (c) { return idOf(c) === wantedId; }) : null;
+    if (usable(wanted)) {
+        wanted.minimized = false;
+        workspace.activeWindow = wanted;
+    }
 } else if (action === "centre") {
     if (target && !target.fullScreen && target.moveable !== false) {
         const a = workArea(target);
@@ -694,14 +720,16 @@ pub(crate) fn run_window_action(program: String, action: &'static str) {
         eprintln!("sonoma-desktop: no X11 window found for {program}");
         return;
     };
-    let targets: Vec<_> = if action == "activate" {
+    let targets: Vec<_> = if matches!(action, "activate" | "activate-visible") {
         vec![window]
     } else {
         windows.iter().collect()
     };
     for window in targets {
         let result = match action {
-            "activate" => Command::new("wmctrl").args(["-ia", window]).status(),
+            "activate" | "activate-visible" => {
+                Command::new("wmctrl").args(["-ia", window]).status()
+            }
             "hide" => Command::new("wmctrl")
                 .args(["-ir", window, "-b", "add,hidden"])
                 .status(),
@@ -1206,7 +1234,14 @@ fn create_tile(
         let snapshot = click_tracker.as_ref().map(KWinWindows::snapshot);
         if should_activate_existing(click_program.as_deref(), &click_aliases, snapshot.as_ref()) {
             if let Some(program) = &click_program {
-                run_window_action(program.clone(), "activate");
+                // With "minimise into icon" off, minimised windows have their
+                // own tiles; the app icon only raises windows that are showing.
+                let action = if crate::preferences::current().minimize_into_icon {
+                    "activate"
+                } else {
+                    "activate-visible"
+                };
+                run_window_action(program.clone(), action);
             }
             return;
         }
@@ -1294,6 +1329,257 @@ fn create_trash_item() -> (gtk::Button, RoundedIcon) {
     button.set_child(Some(&rounded_icon));
     button.connect_clicked(|_| launch("kioclient exec trash:/"));
     (button, rounded_icon)
+}
+
+/// A minimised window's own Dock tile: a window thumbnail with the app's icon
+/// as a badge. Shown right of the Dock separator while "Minimize windows into
+/// application icon" is off.
+struct MinimizedTile {
+    window_id: String,
+    revealer: gtk::Revealer,
+    button: gtk::Button,
+    badge: Option<RoundedIcon>,
+    /// Shows the real window thumbnail once one has been captured.
+    picture: gtk::Picture,
+    /// The placeholder title bar, shown until there is a thumbnail.
+    placeholder: gtk::Box,
+    /// Width / height of the thumbnail (or of the placeholder card).
+    aspect: std::cell::Cell<f64>,
+}
+
+const PLACEHOLDER_ASPECT: f64 = 1.625;
+
+/// Tiles are as tall as the Dock allows and as wide as their window's shape,
+/// within limits so a very wide or very tall window still fits the Dock.
+fn minimized_tile_size(icon_size: i32, aspect: f64) -> (i32, i32) {
+    let height = icon_size * 4 / 5;
+    let width = (f64::from(height) * aspect).round() as i32;
+    (width.clamp(height * 9 / 10, height * 2), height)
+}
+
+/// Shows `texture` on the tile. Returns true if the tile's shape changed, so
+/// the caller must size it again.
+fn set_minimized_thumbnail(tile: &MinimizedTile, texture: &gdk::Texture) -> bool {
+    tile.picture.set_paintable(Some(texture));
+    tile.picture.set_visible(true);
+    tile.placeholder.set_visible(false);
+    let aspect = f64::from(texture.width()) / f64::from(texture.height().max(1));
+    (tile.aspect.replace(aspect) - aspect).abs() > 0.02
+}
+
+fn size_minimized_tile(tile: &MinimizedTile, icon_size: i32) {
+    let (width, height) = minimized_tile_size(icon_size, tile.aspect.get());
+    tile.button.set_size_request(width, height);
+    if let Some(badge) = &tile.badge {
+        badge.set_icon_size((height * 55 / 100).max(16));
+    }
+}
+
+/// The Dock entry whose icon and name stand for `window`'s application: the
+/// matching Dock tile if there is one, else one derived from its identity.
+fn entry_for_window(window: &kwin_windows::AppWindow, app_tiles: &[DockTile]) -> Entry {
+    if let Some(tile) = app_tiles.iter().find(|tile| window.matches(&tile.app_aliases)) {
+        return tile.entry.clone();
+    }
+    let identity = window.resolved_identity();
+    let name = if identity == kwin_windows::SETTINGS_IDENTITY {
+        crate::settings::WINDOW_TITLE.to_string()
+    } else {
+        kwin_windows::installed_app_for_identity(&identity)
+            .map(|app| app.name().to_string())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| identity.rsplit('.').next().unwrap_or(&identity).to_string())
+    };
+    Entry {
+        name,
+        icon: None,
+        command: identity,
+    }
+}
+
+fn create_minimized_tile(
+    window: &kwin_windows::AppWindow,
+    entry: Entry,
+    display: &gdk::Display,
+    hover: &HoverLabel,
+) -> MinimizedTile {
+    let title = match window.title.trim() {
+        "" => entry.name.clone(),
+        title => title.to_string(),
+    };
+    let button = gtk::Button::builder()
+        .css_classes(["dock-item", "dock-minimized-window"])
+        .focusable(false)
+        .valign(gtk::Align::Center)
+        .build();
+    hover.attach(&button, &title);
+
+    // The window "thumbnail": a small window with a title bar.
+    let card = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    card.add_css_class("dock-minimized-thumb");
+    card.set_hexpand(true);
+    card.set_vexpand(true);
+    // Rounds the corners of the thumbnail too.
+    card.set_overflow(gtk::Overflow::Hidden);
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 3);
+    bar.add_css_class("dock-minimized-titlebar");
+    for _ in 0..3 {
+        let dot = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        dot.add_css_class("dock-minimized-dot");
+        dot.set_size_request(4, 4);
+        dot.set_valign(gtk::Align::Center);
+        bar.append(&dot);
+    }
+    card.append(&bar);
+    let picture = gtk::Picture::new();
+    picture.set_content_fit(gtk::ContentFit::Fill);
+    picture.set_can_shrink(true);
+    picture.set_hexpand(true);
+    picture.set_vexpand(true);
+    picture.set_visible(false);
+    // Rounded like the card, and inside its 1px border.
+    picture.add_css_class("dock-minimized-picture");
+    picture.set_overflow(gtk::Overflow::Hidden);
+    picture.set_margin_start(3);
+    picture.set_margin_end(3);
+    picture.set_margin_top(3);
+    picture.set_margin_bottom(3);
+
+    let overlay = gtk::Overlay::new();
+    overlay.set_child(Some(&card));
+    // A picture's natural size is the screenshot's pixel size. As an overlay
+    // that is not measured, the tile keeps the size the Dock gives it.
+    overlay.add_overlay(&picture);
+    overlay.set_measure_overlay(&picture, false);
+    let badge = icon_for(&entry, display).map(|icon| RoundedIcon::new(&icon.picture));
+    match &badge {
+        Some(badge) => {
+            badge.set_halign(gtk::Align::End);
+            badge.set_valign(gtk::Align::End);
+            badge.set_can_target(false);
+            overlay.add_overlay(badge);
+        }
+        None => {
+            let letter = entry
+                .name
+                .chars()
+                .next()
+                .map_or("?".to_string(), |c| c.to_uppercase().to_string());
+            let label = gtk::Label::new(Some(&letter));
+            label.add_css_class("dock-minimized-letter");
+            label.set_halign(gtk::Align::End);
+            label.set_valign(gtk::Align::End);
+            label.set_can_target(false);
+            overlay.add_overlay(&label);
+        }
+    }
+    button.set_child(Some(&overlay));
+
+    let window_id = window.window_id.clone();
+    let identity = window.resolved_identity();
+    button.connect_clicked(move |_| {
+        if identity == kwin_windows::SETTINGS_IDENTITY {
+            settings_window_action("activate");
+        } else {
+            run_active_window_action(Some(window_id.clone()), "restore");
+        }
+    });
+
+    let revealer = gtk::Revealer::new();
+    revealer.set_transition_type(gtk::RevealerTransitionType::SlideRight);
+    revealer.set_transition_duration(0);
+    revealer.set_child(Some(&button));
+    revealer.set_reveal_child(false);
+    revealer.set_visible(false);
+    revealer.set_transition_duration(EXPAND_MILLIS as u32);
+
+    MinimizedTile {
+        window_id: window.window_id.clone(),
+        revealer,
+        button,
+        badge,
+        picture,
+        placeholder: bar,
+        aspect: std::cell::Cell::new(PLACEHOLDER_ASPECT),
+    }
+}
+
+/// Makes the minimised-window tiles match `snapshot`: one per minimised
+/// window while `show` is true (the "minimise into icon" setting is off), none
+/// otherwise. Returns whether tiles were added or removed.
+#[allow(clippy::too_many_arguments)]
+fn sync_minimized_tiles(
+    snapshot: &WindowSnapshot,
+    show: bool,
+    app_tiles: &[DockTile],
+    tiles: &mut Vec<MinimizedTile>,
+    row: &gtk::Box,
+    display: &gdk::Display,
+    hover: &HoverLabel,
+    icon_size: i32,
+    thumbnails: &Thumbnailer,
+    animate_layout: &dyn Fn(u64),
+    settle: &Rc<dyn Fn()>,
+) -> bool {
+    let desired: Vec<&kwin_windows::AppWindow> = if show {
+        snapshot
+            .windows
+            .iter()
+            .filter(|window| {
+                window.minimized && !window.window_id.is_empty() && window.is_trackable_app()
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut changed = false;
+
+    for index in (0..tiles.len()).rev() {
+        if desired
+            .iter()
+            .any(|window| window.window_id == tiles[index].window_id)
+        {
+            continue;
+        }
+        let tile = tiles.remove(index);
+        animate_layout(EXPAND_MILLIS + 80);
+        tile.revealer.set_reveal_child(false);
+        let row = row.clone();
+        let settle = Rc::clone(settle);
+        glib::timeout_add_local_once(Duration::from_millis(EXPAND_MILLIS + 20), move || {
+            if tile.revealer.parent().is_some() {
+                row.remove(&tile.revealer);
+            }
+            row.set_visible(row.first_child().is_some());
+            settle();
+        });
+        changed = true;
+    }
+
+    for window in desired {
+        if tiles.iter().any(|tile| tile.window_id == window.window_id) {
+            continue;
+        }
+        let entry = entry_for_window(window, app_tiles);
+        let tile = create_minimized_tile(window, entry, display, hover);
+        match thumbnails.texture(&window.window_id) {
+            Some(texture) => {
+                set_minimized_thumbnail(&tile, &texture);
+            }
+            // Never seen while visible (e.g. minimised before the Dock
+            // started): worth one attempt, though KWin may refuse.
+            None => thumbnails.request(&window.window_id),
+        }
+        size_minimized_tile(&tile, icon_size);
+        row.append(&tile.revealer);
+        row.set_visible(true);
+        animate_layout(EXPAND_MILLIS + 80);
+        tile.revealer.set_visible(true);
+        tile.revealer.set_reveal_child(true);
+        tiles.push(tile);
+        changed = true;
+    }
+    changed
 }
 
 fn transient_running_entries(
@@ -1469,6 +1755,12 @@ pub fn window(
     separator.add_css_class("dock-separator");
     resize_handle.set_child(Some(&separator));
     dock_content.append(&resize_handle);
+    // Minimised windows (when they are not folded into their app icon) sit
+    // between the separator and the Trash, as on macOS.
+    let minimized_row = gtk::Box::new(gtk::Orientation::Horizontal, 3);
+    minimized_row.set_valign(gtk::Align::Center);
+    minimized_row.set_visible(false);
+    dock_content.append(&minimized_row);
     let resize_origin = Rc::new(std::cell::Cell::new(50.0));
     let resize_gesture = gtk::GestureDrag::new();
     resize_gesture.set_button(1);
@@ -1569,6 +1861,7 @@ pub fn window(
     }
 
     let tiles = Rc::new(RefCell::new(tiles));
+    let minimized_tiles = Rc::new(RefCell::new(Vec::<MinimizedTile>::new()));
     let window = gtk::Window::builder()
         .application(app)
         .title("Sonoma Dock")
@@ -1604,6 +1897,7 @@ pub fn window(
     let apply = {
         let monitor = monitor.clone();
         let size_tiles = Rc::clone(&tiles);
+        let size_minimized = Rc::clone(&minimized_tiles);
         let displayed_dock_size = Rc::clone(&displayed_dock_size);
         move || {
             let size = tile_size(&monitor, displayed_dock_size.get());
@@ -1612,6 +1906,9 @@ pub fn window(
                 if let Some(icon) = &tile.icon {
                     icon.set_icon_size(size - 4);
                 }
+            }
+            for tile in size_minimized.borrow().iter() {
+                size_minimized_tile(tile, size);
             }
             trash_button.set_size_request(size, size);
             trash_icon.set_icon_size((size - 8) * 9 / 10);
@@ -1782,6 +2079,29 @@ pub fn window(
         monitor_reposition();
     });
 
+    // Re-measure the Dock window and put it back in place once layout settles.
+    let settle: Rc<dyn Fn()> = {
+        let window = window.downgrade();
+        let monitor = monitor.clone();
+        let reposition = Rc::clone(&reposition);
+        Rc::new(move || {
+            if let Some(window) = window.upgrade() {
+                resize_window_to_content(&window, &monitor);
+            }
+            reposition();
+        })
+    };
+    let thumbnails = Rc::new(Thumbnailer::new());
+    let mut last_thumbnail_capture = None::<Instant>;
+    let mut logged_thumbnail_summary = None::<(usize, usize)>;
+    if kwin_windows.is_none() {
+        eprintln!("[thumbnail] no KWin window tracker, so no minimised-window tiles or thumbnails");
+    }
+    let refresh_minimized_tiles = Rc::clone(&minimized_tiles);
+    let refresh_minimized_row = minimized_row.clone();
+    let refresh_settle = Rc::clone(&settle);
+    let mut applied_minimize_into_icon = crate::preferences::current().minimize_into_icon;
+
     let desktop = detect_desktop();
     let refresh_tracker = kwin_windows.clone();
     let refresh_interval = if refresh_tracker.is_some() {
@@ -1876,13 +2196,16 @@ pub fn window(
             current_revision.is_some() && current_revision != last_synced_revision;
         // A pin was added or removed from the Dock menu: re-check every tile.
         let pins_changed = refresh_pin_state.dirty.replace(false);
-        let snapshot = if windows_changed || pins_changed {
+        let current_preferences = crate::preferences::current();
+        // The "minimise into icon" switch was flipped: re-evaluate the tiles.
+        let minimize_changed =
+            current_preferences.minimize_into_icon != applied_minimize_into_icon;
+        let snapshot = if windows_changed || pins_changed || minimize_changed {
             refresh_tracker.as_ref().map(KWinWindows::snapshot)
         } else {
             None
         };
         let mut layout_changed = false;
-        let current_preferences = crate::preferences::current();
         if current_preferences.dock_auto_hide != applied_auto_hide {
             if current_preferences.dock_auto_hide {
                 refresh_hide_generation.set(refresh_hide_generation.get().wrapping_add(1));
@@ -1937,6 +2260,88 @@ pub fn window(
                 }
             }
         }
+        if let Some(snapshot) = &snapshot {
+            let icon_size = tile_size(&refresh_monitor, refresh_displayed_size.get());
+            if sync_minimized_tiles(
+                snapshot,
+                !current_preferences.minimize_into_icon,
+                &tiles.borrow(),
+                &mut refresh_minimized_tiles.borrow_mut(),
+                &refresh_minimized_row,
+                &refresh_display,
+                &refresh_hover,
+                icon_size,
+                &thumbnails,
+                &*refresh_animate_layout,
+                &refresh_settle,
+            ) {
+                layout_changed = true;
+            }
+            let live: HashSet<&str> = snapshot
+                .windows
+                .iter()
+                .map(|window| window.window_id.as_str())
+                .collect();
+            thumbnails.retain(&live);
+        }
+        // Real thumbnails: show finished captures, and keep capturing visible
+        // windows so a window's picture is fresh when it gets minimised (KWin
+        // cannot capture a window once it is minimised).
+        let minimised_ids: HashSet<String> = refresh_minimized_tiles
+            .borrow()
+            .iter()
+            .map(|tile| tile.window_id.clone())
+            .collect();
+        let updated = thumbnails.poll(&minimised_ids);
+        if !updated.is_empty() {
+            let icon_size = tile_size(&refresh_monitor, refresh_displayed_size.get());
+            for tile in refresh_minimized_tiles.borrow().iter() {
+                if updated.contains(&tile.window_id) {
+                    if let Some(texture) = thumbnails.texture(&tile.window_id) {
+                        if set_minimized_thumbnail(tile, &texture) {
+                            size_minimized_tile(tile, icon_size);
+                            layout_changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        if !current_preferences.minimize_into_icon
+            && last_thumbnail_capture
+                .map_or(true, |at| at.elapsed() >= Duration::from_millis(1500))
+        {
+            if let Some(tracker) = &refresh_tracker {
+                last_thumbnail_capture = Some(Instant::now());
+                let windows = tracker.snapshot().windows;
+                // One line whenever the picture of what could be captured changes.
+                let summary = (
+                    windows.iter().filter(|w| !w.minimized && w.is_trackable_app()).count(),
+                    windows.iter().filter(|w| w.minimized && w.is_trackable_app()).count(),
+                );
+                if logged_thumbnail_summary != Some(summary) {
+                    eprintln!(
+                        "[thumbnail] switch is off; visible windows={} minimised windows={}",
+                        summary.0, summary.1
+                    );
+                    logged_thumbnail_summary = Some(summary);
+                }
+                let visible = |window: &&kwin_windows::AppWindow| {
+                    !window.minimized && !window.window_id.is_empty() && window.is_trackable_app()
+                };
+                // The focused window changes most, so refresh it first.
+                for window in windows.iter().filter(visible).filter(|w| w.focused) {
+                    thumbnails.request(&window.window_id);
+                }
+                for window in windows
+                    .iter()
+                    .filter(visible)
+                    .filter(|w| !thumbnails.has_texture(&w.window_id))
+                {
+                    thumbnails.request(&window.window_id);
+                }
+            }
+        }
+        applied_minimize_into_icon = current_preferences.minimize_into_icon;
         if let Some(snapshot) = &snapshot {
             if last_logged_revision != Some(snapshot.revision) {
                 let mut groups = std::collections::BTreeMap::<
