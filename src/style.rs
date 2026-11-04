@@ -4,8 +4,8 @@
 use gtk::gdk;
 
 const CSS: &str = "
-window.sonoma-wallpaper,
-window.sonoma-menubar {
+window.lunar-wallpaper,
+window.lunar-menubar {
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -13,10 +13,10 @@ window.sonoma-menubar {
 }
 
 /* Only visible for the instant before the first frame is painted. */
-window.sonoma-wallpaper { background-color: #2f3573; }
+window.lunar-wallpaper { background-color: #2f3573; }
 
 /* The tint and hairline are drawn by GlassStrip; KWin paints the blur. */
-window.sonoma-menubar {
+window.lunar-menubar {
     background-color: transparent;
 }
 
@@ -24,7 +24,7 @@ window.sonoma-menubar {
    The window draws its own frame (see settings.rs). Everything is clipped to
    .settings-root so the corners are round; the 1px shadow is just an outline
    because a big drop shadow would also be covered by the compositor blur. */
-window.sonoma-settings-window {
+window.lunar-settings-window {
     background-color: transparent;
     border-radius: 12px;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.22);
@@ -47,7 +47,7 @@ window.sonoma-settings-window {
 
 /* Sidebar: tinted over the blurred backdrop. */
 .settings-sidebar {
-    background-color: rgba(236, 238, 244, 0.52);
+    background-color: rgba(236, 238, 244, 0.82);
     border-right: 1px solid rgba(0, 0, 0, 0.08);
 }
 .settings-sidebar-top {
@@ -319,7 +319,7 @@ button.settings-popup {
 
 /* Dock: the window is see-through; the rounded translucent shelf is .dock.
    Its margins leave room for the soft shadow and the running indicators. */
-window.sonoma-dock {
+window.lunar-dock {
     background-color: transparent;
     border: none;
     box-shadow: none;
@@ -424,12 +424,12 @@ window.sonoma-dock {
 .dock-item.dock-placeholder:hover {
     background-image: linear-gradient(#b3b8c2, #8a909c);
 }
-menubutton.sonoma-menu-button,
-menubutton.sonoma-menu-button > button,
-menubutton.sonoma-menu-button > button:hover,
-menubutton.sonoma-menu-button > button:active,
-menubutton.sonoma-menu-button > button:checked,
-menubutton.sonoma-menu-button > button:backdrop {
+menubutton.lunar-menu-button,
+menubutton.lunar-menu-button > button,
+menubutton.lunar-menu-button > button:hover,
+menubutton.lunar-menu-button > button:active,
+menubutton.lunar-menu-button > button:checked,
+menubutton.lunar-menu-button > button:backdrop {
     padding: 0;
     min-height: 26px;
     min-width: 32px;
@@ -440,34 +440,34 @@ menubutton.sonoma-menu-button > button:backdrop {
     background-image: none;
     box-shadow: none;
 }
-menubutton.sonoma-menu-button.menu-open > button {
+menubutton.lunar-menu-button.menu-open > button {
     background-color: rgba(150, 150, 150, 0.22);
     background-image: none;
     border-radius: 13px;
 }
-.sonoma-kde-logo-dark {
+.lunar-kde-logo-dark {
     opacity: 0;
 }
-.sonoma-kde-logo-light.dark-mode {
+.lunar-kde-logo-light.dark-mode {
     opacity: 0;
 }
-.sonoma-kde-logo-dark.dark-mode {
+.lunar-kde-logo-dark.dark-mode {
     opacity: 1;
 }
-.sonoma-active-app {
+.lunar-active-app {
     margin-left: 0;
     font-size: 13px;
     font-weight: 800;
     color: #ffffff;
 }
-.sonoma-active-app.dark-mode {
+.lunar-active-app.dark-mode {
     color: #111113;
 }
-menubutton.sonoma-active-app-button,
-menubutton.sonoma-active-app-button > button,
-menubutton.sonoma-active-app-button > button:hover,
-menubutton.sonoma-active-app-button > button:active,
-menubutton.sonoma-active-app-button > button:checked {
+menubutton.lunar-active-app-button,
+menubutton.lunar-active-app-button > button,
+menubutton.lunar-active-app-button > button:hover,
+menubutton.lunar-active-app-button > button:active,
+menubutton.lunar-active-app-button > button:checked {
     min-width: 0;
     min-height: 28px;
     padding: 0 3px;
@@ -478,7 +478,7 @@ menubutton.sonoma-active-app-button > button:checked {
     background-image: none;
     box-shadow: none;
 }
-popover.sonoma-menu-popover {
+popover.lunar-menu-popover {
     padding: 0;
     border: none;
     outline: none;
@@ -486,14 +486,14 @@ popover.sonoma-menu-popover {
     box-shadow: none;
     border-radius: 12px;
 }
-popover.sonoma-menu-popover > contents {
+popover.lunar-menu-popover > contents {
     padding: 0;
     border: none;
     outline: none;
     background: transparent;
     box-shadow: none;
 }
-.sonoma-system-menu {
+.lunar-system-menu {
     min-width: 220px;
     padding: 5px 6px;
     background-color: rgba(226, 231, 236, 0.64);
@@ -501,7 +501,7 @@ popover.sonoma-menu-popover > contents {
     border-radius: 12px;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
 }
-button.sonoma-menu-item {
+button.lunar-menu-item {
     min-height: 25px;
     padding: 1px 8px;
     border: none;
@@ -511,75 +511,75 @@ button.sonoma-menu-item {
     box-shadow: none;
     transition: background-color 120ms ease-out, color 120ms ease-out;
 }
-button.sonoma-menu-item:hover,
-button.sonoma-menu-item:active {
+button.lunar-menu-item:hover,
+button.lunar-menu-item:active {
     background-color: rgba(0, 122, 255, 0.94);
     color: white;
 }
-button.sonoma-menu-item:disabled {
+button.lunar-menu-item:disabled {
     color: rgba(23, 23, 23, 0.48);
 }
-.sonoma-menu-separator {
+.lunar-menu-separator {
     min-height: 1px;
     margin: 3px 6px;
     background-color: rgba(0, 0, 0, 0.16);
 }
-.sonoma-system-menu.dock-context-menu {
+.lunar-system-menu.dock-context-menu {
     min-width: 180px;
     padding: 3px;
 }
-.sonoma-system-menu.dock-context-submenu {
+.lunar-system-menu.dock-context-submenu {
     min-width: 190px;
     padding: 3px;
 }
 /* The little arrow pointing from the Dock menu at its icon. */
-popover.sonoma-menu-popover.dock-context-popover > arrow,
-popover.sonoma-menu-popover.dock-label-popover > arrow {
+popover.lunar-menu-popover.dock-context-popover > arrow,
+popover.lunar-menu-popover.dock-label-popover > arrow {
     min-width: 14px;
     min-height: 14px;
     border: none;
     box-shadow: none;
     background-color: rgba(226, 231, 236, 0.64);
 }
-.dark-mode popover.sonoma-menu-popover.dock-context-popover > arrow,
-popover.sonoma-menu-popover.dock-context-popover.dark-mode > arrow,
-.dark-mode popover.sonoma-menu-popover.dock-label-popover > arrow,
-popover.sonoma-menu-popover.dock-label-popover.dark-mode > arrow {
+.dark-mode popover.lunar-menu-popover.dock-context-popover > arrow,
+popover.lunar-menu-popover.dock-context-popover.dark-mode > arrow,
+.dark-mode popover.lunar-menu-popover.dock-label-popover > arrow,
+popover.lunar-menu-popover.dock-label-popover.dark-mode > arrow {
     background-color: rgba(67, 71, 78, 0.88);
 }
 /* App-name bubble shown above a Dock icon on hover. */
-.sonoma-system-menu.dock-label {
+.lunar-system-menu.dock-label {
     min-width: 0;
     padding: 4px 11px;
     border-radius: 8px;
     font-size: 13px;
     color: #171717;
 }
-.dark-mode .sonoma-system-menu.dock-label {
+.dark-mode .lunar-system-menu.dock-label {
     color: #f5f5f7;
 }
-.sonoma-system-menu.active-app-menu {
+.lunar-system-menu.active-app-menu {
     min-width: 200px;
     padding: 3px;
 }
-.active-app-menu button.sonoma-menu-item {
+.active-app-menu button.lunar-menu-item {
     min-height: 23px;
     padding: 0 7px;
     font-size: 12px;
 }
-button.sonoma-context-menu-item {
+button.lunar-context-menu-item {
     min-height: 23px;
     padding: 0 6px;
     border-radius: 5px;
     font-size: 13px;
 }
-.sonoma-context-menu-arrow {
+.lunar-context-menu-arrow {
     margin-left: 10px;
 }
-.sonoma-context-menu-separator {
+.lunar-context-menu-separator {
     margin: 2px 5px;
 }
-.active-app-menu searchentry.sonoma-help-search {
+.active-app-menu searchentry.lunar-help-search {
     min-height: 22px;
     margin: 2px 3px 4px 3px;
     padding: 0 6px;
@@ -588,12 +588,12 @@ button.sonoma-context-menu-item {
 }
 
 /* Dark appearance is opt-in and follows the saved application preference. */
-window.sonoma-settings-window.dark-mode {
+window.lunar-settings-window.dark-mode {
     background-color: transparent;
     color: #f2f2f4;
 }
 .dark-mode .settings-sidebar {
-    background-color: rgba(38, 38, 42, 0.50);
+    background-color: rgba(38, 38, 42, 0.84);
     border-right-color: rgba(255, 255, 255, 0.07);
 }
 .dark-mode .settings-content,
@@ -680,7 +680,7 @@ image.settings-sidebar-icon.dark-mode {
     background-color: rgba(61, 65, 72, 0.72);
     border-color: rgba(255, 255, 255, 0.24);
 }
-.sonoma-dock.dark-mode .dock {
+.lunar-dock.dark-mode .dock {
     background-color: rgba(61, 65, 72, 0.72);
 }
 .dock-separator.dark-mode {
@@ -689,20 +689,20 @@ image.settings-sidebar-icon.dark-mode {
 .dark-mode .dock-running-indicator {
     background-color: rgba(245, 245, 247, 0.94);
 }
-.dark-mode .sonoma-system-menu {
+.dark-mode .lunar-system-menu {
     background-color: rgba(67, 71, 78, 0.88);
 }
-.dark-mode button.sonoma-menu-item {
+.dark-mode button.lunar-menu-item {
     color: #f5f5f7;
 }
-.dark-mode button.sonoma-menu-item:disabled {
+.dark-mode button.lunar-menu-item:disabled {
     color: rgba(235, 235, 245, 0.42);
 }
-.dark-mode .sonoma-menu-separator {
+.dark-mode .lunar-menu-separator {
     background-color: rgba(255, 255, 255, 0.18);
 }
 /* ---- Wallpaper picker (settings.rs) and desktop context menu ------------ */
-.sonoma-system-menu.desktop-context-menu {
+.lunar-system-menu.desktop-context-menu {
     min-width: 190px;
     padding: 3px;
 }
@@ -744,7 +744,7 @@ button.wallpaper-add {
     color: #f5f5f7;
 }
 /* ---- Wi-Fi menu (see menubar.rs `wifi_menu`) ----------------------------- */
-.sonoma-system-menu.wifi-menu {
+.lunar-system-menu.wifi-menu {
     min-width: 0;
     padding: 4px;
 }
@@ -753,7 +753,7 @@ button.wallpaper-add {
     font-weight: 700;
     color: #171717;
 }
-.wifi-menu .sonoma-menu-separator {
+.wifi-menu .lunar-menu-separator {
     margin: 3px 3px;
 }
 .wifi-menu .wifi-section-title {
@@ -767,7 +767,7 @@ button.wallpaper-add {
     font-size: 12px;
     color: rgba(60, 60, 67, 0.62);
 }
-.wifi-menu button.sonoma-menu-item {
+.wifi-menu button.lunar-menu-item {
     min-height: 24px;
     padding: 0 6px;
     font-size: 12px;
@@ -796,7 +796,7 @@ button.wallpaper-add {
 .wifi-lock {
     color: rgba(23, 23, 23, 0.62);
 }
-.wifi-menu button.sonoma-menu-item:hover .wifi-lock {
+.wifi-menu button.lunar-menu-item:hover .wifi-lock {
     color: #ffffff;
 }
 .wifi-menu button.wifi-current-item:hover .wifi-lock {
@@ -842,16 +842,16 @@ button.wallpaper-add {
 .dark-mode .wifi-menu button.wifi-current-item:hover .wifi-lock {
     color: rgba(245, 245, 247, 0.62);
 }
-.dark-mode .wifi-menu button.sonoma-menu-item:hover .wifi-lock {
+.dark-mode .wifi-menu button.lunar-menu-item:hover .wifi-lock {
     color: #ffffff;
 }
 /* ---- About This System (see about.rs) ---------------------------------- */
 /* KWin's blur strength is a global setting the app can't change, so the
    About window gets a mostly opaque tint to tame how much backdrop shows. */
-.sonoma-about-window .settings-root {
+.lunar-about-window .settings-root {
     background-color: rgba(246, 246, 248, 0.88);
 }
-.sonoma-about-window.dark-mode .settings-root {
+.lunar-about-window.dark-mode .settings-root {
     background-color: rgba(40, 40, 44, 0.90);
 }
 .about-top {
@@ -860,7 +860,7 @@ button.wallpaper-add {
 .about-window-controls {
     margin-left: 20px;
 }
-.sonoma-about-window .settings-window-controls button.about-inert {
+.lunar-about-window .settings-window-controls button.about-inert {
     background-color: rgba(0, 0, 0, 0.14);
 }
 .about-content {
@@ -932,7 +932,7 @@ button.about-more-info:active {
 .dark-mode .about-info-value {
     color: #f5f5f7;
 }
-.sonoma-about-window.dark-mode .settings-window-controls button.about-inert {
+.lunar-about-window.dark-mode .settings-window-controls button.about-inert {
     background-color: rgba(255, 255, 255, 0.16);
 }
 .dark-mode button.about-more-info {
@@ -942,42 +942,42 @@ button.about-more-info:active {
 }
 
 /* ---- Menu bar titles next to the app name (File, ...) ------------------ */
-.sonoma-menubar-item {
+.lunar-menubar-item {
     margin-left: 0;
     font-size: 13px;
     font-weight: 500;
     color: #ffffff;
 }
-.sonoma-menubar-item.dark-mode {
+.lunar-menubar-item.dark-mode {
     color: #111113;
 }
 /* The bar colours follow the wallpaper behind the bar (menubar::set_tone puts
    one of these two classes on the bar window), not the Dark Mode setting. */
-.sonoma-menubar.bar-light-text .sonoma-menubar-item,
-.sonoma-menubar.bar-light-text .sonoma-active-app {
+.lunar-menubar.bar-light-text .lunar-menubar-item,
+.lunar-menubar.bar-light-text .lunar-active-app {
     color: #ffffff;
 }
-.sonoma-menubar.bar-dark-text .sonoma-menubar-item,
-.sonoma-menubar.bar-dark-text .sonoma-active-app {
+.lunar-menubar.bar-dark-text .lunar-menubar-item,
+.lunar-menubar.bar-dark-text .lunar-active-app {
     color: #111113;
 }
-.sonoma-menubar.bar-light-text .sonoma-kde-logo-light {
+.lunar-menubar.bar-light-text .lunar-kde-logo-light {
     opacity: 1;
 }
-.sonoma-menubar.bar-light-text .sonoma-kde-logo-dark {
+.lunar-menubar.bar-light-text .lunar-kde-logo-dark {
     opacity: 0;
 }
-.sonoma-menubar.bar-dark-text .sonoma-kde-logo-light {
+.lunar-menubar.bar-dark-text .lunar-kde-logo-light {
     opacity: 0;
 }
-.sonoma-menubar.bar-dark-text .sonoma-kde-logo-dark {
+.lunar-menubar.bar-dark-text .lunar-kde-logo-dark {
     opacity: 1;
 }
-menubutton.sonoma-menubar-item-button,
-menubutton.sonoma-menubar-item-button > button,
-menubutton.sonoma-menubar-item-button > button:hover,
-menubutton.sonoma-menubar-item-button > button:active,
-menubutton.sonoma-menubar-item-button > button:checked {
+menubutton.lunar-menubar-item-button,
+menubutton.lunar-menubar-item-button > button,
+menubutton.lunar-menubar-item-button > button:hover,
+menubutton.lunar-menubar-item-button > button:active,
+menubutton.lunar-menubar-item-button > button:checked {
     min-width: 0;
     min-height: 22px;
     padding: 0 8px;
@@ -988,7 +988,7 @@ menubutton.sonoma-menubar-item-button > button:checked {
     background-image: none;
     box-shadow: none;
 }
-menubutton.sonoma-active-app-button.sonoma-menubar-item-button > button:checked {
+menubutton.lunar-active-app-button.lunar-menubar-item-button > button:checked {
     background-color: rgba(150, 150, 150, 0.30);
 }
 
@@ -1025,9 +1025,143 @@ menubutton.sonoma-active-app-button.sonoma-menubar-item-button > button:checked 
 }
 
 /* Menu bar clock on the right. */
-.sonoma-menubar-clock {
+.lunar-menubar-clock {
     font-size: 13px;
     font-weight: 500;
+}
+/* ---- Control Centre (see control_center.rs) ------------------------------ */
+/* No panel background: only the compositor blur shows through, and each
+   control is a clear glass tile with a light rim. */
+.lunar-system-menu.cc-panel,
+.dark-mode .lunar-system-menu.cc-panel {
+    min-width: 0;
+    padding: 12px;
+    border-radius: 26px;
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+}
+.cc-panel .cc-tile,
+.cc-panel button.cc-button,
+.cc-panel button.cc-edit {
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02));
+    border: 1px solid rgba(255, 255, 255, 0.50);
+    border-radius: 22px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 4px rgba(0, 0, 0, 0.12);
+    outline: none;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    padding: 0;
+    min-height: 0;
+    min-width: 0;
+}
+.cc-panel button.cc-button:hover,
+.cc-panel button.cc-edit:hover {
+    background-color: rgba(255, 255, 255, 0.20);
+}
+.cc-panel button.cc-button:disabled {
+    opacity: 0.5;
+}
+.cc-panel button.cc-circle {
+    border-radius: 32px;
+}
+.cc-panel button.cc-square {
+    border-radius: 20px;
+}
+.cc-panel button.cc-button.on.cc-circle,
+.cc-panel button.cc-button.on.cc-square {
+    background-color: rgba(10, 132, 255, 0.85);
+    border-color: rgba(255, 255, 255, 0.60);
+}
+.cc-panel .cc-disc {
+    border-radius: 17px;
+    background-color: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.42);
+}
+.cc-panel button.cc-pill {
+    padding: 0 12px 0 10px;
+}
+.cc-panel button.cc-pill.on .cc-disc {
+    background-color: rgba(10, 132, 255, 0.90);
+}
+.cc-panel .cc-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ffffff;
+}
+.cc-panel .cc-subtitle {
+    font-size: 11px;
+    font-weight: 400;
+    color: #ffffff;
+    opacity: 0.75;
+}
+.cc-panel .cc-art {
+    border-radius: 9px;
+    background-color: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.40);
+}
+.cc-panel .cc-art picture {
+    border-radius: 9px;
+}
+.cc-panel button.cc-transport {
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    background: transparent;
+    background-image: none;
+    box-shadow: none;
+    color: #ffffff;
+}
+.cc-panel button.cc-transport:hover {
+    background-color: rgba(255, 255, 255, 0.22);
+}
+.cc-panel button.cc-mini-circle {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.50);
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.14);
+    background-image: none;
+    box-shadow: none;
+    color: #ffffff;
+}
+.cc-panel button.cc-mini-circle.on {
+    background-color: rgba(10, 132, 255, 0.90);
+}
+.cc-panel .cc-icon {
+    color: #ffffff;
+}
+.cc-panel scale.cc-slider trough {
+    min-height: 22px;
+    border-radius: 11px;
+    border: 1px solid rgba(255, 255, 255, 0.40);
+    background-color: rgba(255, 255, 255, 0.10);
+}
+.cc-panel scale.cc-slider highlight {
+    border-radius: 11px;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.85);
+    background-image: none;
+}
+.cc-panel scale.cc-slider slider {
+    min-width: 22px;
+    min-height: 22px;
+    margin: 0;
+    border: none;
+    border-radius: 11px;
+    background-color: #ffffff;
+    background-image: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+}
+.cc-panel button.cc-edit {
+    padding: 4px 14px;
+    border-radius: 14px;
+    font-size: 12px;
+    font-weight: 600;
 }
 ";
 

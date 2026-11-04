@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Try sonoma-desktop without leaving your current session.
+# Try lunar-desktop without leaving your current session.
 #
 # Opens a nested Sway compositor in a window (works from GNOME, KDE, X11, ...)
 # and starts the shell inside it. Close the window, or press Super+Shift+E, to quit.
@@ -18,7 +18,7 @@ cargo build --release
 
 config="$(mktemp)"
 trap 'rm -f "$config"' EXIT
-echo "exec \"$PWD/target/release/sonoma-desktop\"" > "$config"
+echo "exec \"$PWD/target/release/lunar-desktop\"" > "$config"
 
 # With no real display of its own, Sway nests itself in the current session.
 exec sway --config "$config"

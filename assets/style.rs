@@ -4,8 +4,8 @@
 use gtk::gdk;
 
 const CSS: &str = "
-window.sonoma-wallpaper,
-window.sonoma-menubar {
+window.lunar-wallpaper,
+window.lunar-menubar {
     border: none;
     border-radius: 0;
     box-shadow: none;
@@ -13,16 +13,16 @@ window.sonoma-menubar {
 }
 
 /* Only visible for the instant before the first frame is painted. */
-window.sonoma-wallpaper { background-color: #2f3573; }
+window.lunar-wallpaper { background-color: #2f3573; }
 
 /* The bar paints its own glass; keep the window itself see-through. */
-window.sonoma-menubar { background-color: transparent; }
+window.lunar-menubar { background-color: transparent; }
 
 /* ---- System Settings -------------------------------------------------
    The window draws its own frame (see settings.rs). Everything is clipped to
    .settings-root so the corners are round; the 1px shadow is just an outline
    because a big drop shadow would also be covered by the compositor blur. */
-window.sonoma-settings-window {
+window.lunar-settings-window {
     background-color: transparent;
     border-radius: 12px;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.22);
@@ -215,7 +215,7 @@ button.settings-navigation-button:disabled {
 
 /* Dock: the window is see-through; the rounded translucent shelf is .dock.
    Its margins leave room for the soft shadow and the running indicators. */
-window.sonoma-dock {
+window.lunar-dock {
     background-color: transparent;
     border: none;
     box-shadow: none;
@@ -270,10 +270,10 @@ window.sonoma-dock {
     font-size: 22px;
     font-weight: 600;
 }
-button.sonoma-menu-button,
-button.sonoma-menu-button:hover,
-button.sonoma-menu-button:active,
-button.sonoma-menu-button:checked {
+button.lunar-menu-button,
+button.lunar-menu-button:hover,
+button.lunar-menu-button:active,
+button.lunar-menu-button:checked {
     padding: 0;
     border: none;
     border-radius: 0;
@@ -281,7 +281,7 @@ button.sonoma-menu-button:checked {
     background: transparent;
     box-shadow: none;
 }
-popover.sonoma-menu-popover {
+popover.lunar-menu-popover {
     padding: 0;
     border: none;
     outline: none;
@@ -289,14 +289,14 @@ popover.sonoma-menu-popover {
     box-shadow: none;
     border-radius: 12px;
 }
-popover.sonoma-menu-popover > contents {
+popover.lunar-menu-popover > contents {
     padding: 0;
     border: none;
     outline: none;
     background: transparent;
     box-shadow: none;
 }
-.sonoma-system-menu {
+.lunar-system-menu {
     min-width: 220px;
     padding: 5px 6px;
     background-color: rgba(137, 192, 232, 0.54);
@@ -304,7 +304,7 @@ popover.sonoma-menu-popover > contents {
     border-radius: 12px;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
 }
-button.sonoma-menu-item {
+button.lunar-menu-item {
     min-height: 25px;
     padding: 1px 8px;
     border: none;
@@ -314,37 +314,37 @@ button.sonoma-menu-item {
     box-shadow: none;
     transition: background-color 120ms ease-out, color 120ms ease-out;
 }
-button.sonoma-menu-item:hover,
-button.sonoma-menu-item:active {
+button.lunar-menu-item:hover,
+button.lunar-menu-item:active {
     background-color: rgba(0, 122, 255, 0.94);
     color: white;
 }
-button.sonoma-menu-item:disabled {
+button.lunar-menu-item:disabled {
     color: rgba(23, 23, 23, 0.48);
 }
-.sonoma-menu-separator {
+.lunar-menu-separator {
     min-height: 1px;
     margin: 3px 6px;
     background-color: rgba(0, 0, 0, 0.16);
 }
-.sonoma-system-menu.dock-context-menu {
+.lunar-system-menu.dock-context-menu {
     min-width: 126px;
     padding: 3px;
 }
-.sonoma-system-menu.dock-context-submenu {
+.lunar-system-menu.dock-context-submenu {
     min-width: 164px;
     padding: 3px;
 }
-button.sonoma-context-menu-item {
+button.lunar-context-menu-item {
     min-height: 23px;
     padding: 0 6px;
     border-radius: 5px;
     font-size: 13px;
 }
-.sonoma-context-menu-arrow {
+.lunar-context-menu-arrow {
     margin-left: 10px;
 }
-.sonoma-context-menu-separator {
+.lunar-context-menu-separator {
     margin: 2px 5px;
 }
 ";

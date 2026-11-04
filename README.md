@@ -1,5 +1,5 @@
 <<<<<<< HEAD
-# sonoma-desktop
+# lunar-desktop
 
 A minimal macOS Sonoma-inspired desktop shell for Linux, written in Rust.
 
@@ -71,14 +71,14 @@ command = "firefox --new-window"         # program + arguments
 - **Commands are not run through a shell.** They are split into a program and arguments
   (quotes group words), so pipes, `$VARS` and `~` are not interpreted. A command that fails
   to start is logged and otherwise ignored.
-- **Config location**, first found wins: `$SONOMA_DOCK_CONFIG`, `./config/dock.toml`, the
-  project folder of the built binary, `~/.config/sonoma-desktop/dock.toml`, then the build
+- **Config location**, first found wins: `$LUNAR_DOCK_CONFIG`, `./config/dock.toml`, the
+  project folder of the built binary, `~/.config/lunar-desktop/dock.toml`, then the build
   folder. If none is usable, the bundled default is used.
 
 ## Requirements
 
 - **KDE Plasma on Wayland**, with KWin's `org_kde_plasma_shell` protocol available.
-  X11 and other Wayland compositors are not supported by this KDE-only build.
+  X11 is not supported.
 - Rust (tested with 1.97)
 - GTK 4.12 or newer, with development headers
 - Wayland client development headers
@@ -96,7 +96,7 @@ sudo apt install build-essential pkg-config libgtk-4-dev libwayland-dev
 
 ```sh
 cargo build --release
-./target/release/sonoma-desktop          # run inside a KDE Plasma Wayland session
+./target/release/lunar-desktop          # run inside a KDE Plasma Wayland session
 ```
 If the session does not provide Plasma shell surfaces, the program exits with an
 explanatory message.
@@ -148,7 +148,7 @@ assets/           bundled wallpaper, dock-icons/ (your icons)
 scripts/          wallpaper generator, nested-session launcher
 ```
 =======
-# Sonoma-desktop
+# Lunar-desktop
 >>>>>>> c254a1796cf7504c9dbcbf1e14beb0e739ddcfe0
 
 
@@ -163,3 +163,28 @@ path of the binary you run) and restart the shell. Without it the tile shows a
 placeholder card instead. KWin cannot capture a window once it is minimised, so
 the Dock refreshes a thumbnail of each visible window about every 1.5 seconds
 while the switch is off and shows the latest one.
+
+
+## The Lunar session (KWin + Lunar, no plasmashell)
+
+Lunar can run as a complete desktop of its own: KWin is the window manager and
+compositor, Lunar is the shell (wallpaper, menu bar, dock), and Plasma's own
+shell never starts. It installs as a separate entry at the login screen, so
+your normal Plasma session is left alone.
+
+    cargo build --release
+    sudo session/install.sh              # add --prefix /usr to install under /usr
+    # log out, then pick "Lunar" in the session menu on the login screen
+
+To go back, pick "Plasma" at the login screen. To remove it again:
+`sudo session/install.sh --uninstall`. The session log is
+`~/.local/state/lunar-desktop/session.log`.
+
+What the session starts, besides KWin and Lunar: KDE's global-shortcut service
+and settings daemon, the polkit password agent, and a notification daemon
+(`mako`, `dunst` or `swaync`, whichever is installed; Plasma's own notification
+popups lived in plasmashell, so install one of them). Needs Plasma 6 (KWin and
+`kglobalacceld`) and a systemd user session.
+
+This session is new and has had little testing. If something does not start,
+the log says which helper was skipped.

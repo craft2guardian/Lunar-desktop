@@ -10,7 +10,7 @@ fn main() {
     let blur_object = out_dir.join("kwin_blur.o");
     let shell_object = out_dir.join("kde_shell.o");
     let protocol_object = out_dir.join("ext-background-effect-v1-protocol.o");
-    let archive = out_dir.join("libsonoma_kde_blur.a");
+    let archive = out_dir.join("liblunar_kde_blur.a");
     let protocol_xml = PathBuf::from("protocols/ext-background-effect-v1.xml");
     let protocol_header = out_dir.join("ext-background-effect-v1-client-protocol.h");
     let protocol_code = out_dir.join("ext-background-effect-v1-protocol.c");
@@ -61,7 +61,7 @@ fn main() {
     );
 
     println!("cargo:rustc-link-search=native={}", out_dir.display());
-    println!("cargo:rustc-link-lib=static=sonoma_kde_blur");
+    println!("cargo:rustc-link-lib=static=lunar_kde_blur");
     // GTK4 Layer Shell interposes Wayland surface setup. It must be loaded
     // before libwayland-client or its support probe and init hooks can be
     // bypassed by the already-loaded Wayland symbols.

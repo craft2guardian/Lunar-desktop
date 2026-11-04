@@ -20,7 +20,7 @@ const SIDEBAR_WIDTH: i32 = 232;
 
 unsafe extern "C" {
     /// Tells the Wayland compositor the window's size limits (0 = unlimited).
-    fn sonoma_toplevel_set_size_limits(
+    fn lunar_toplevel_set_size_limits(
         surface: *mut gdk::ffi::GdkSurface,
         min_width: i32,
         min_height: i32,
@@ -33,7 +33,7 @@ fn lock_window_width(window: &gtk::ApplicationWindow) {
     use gtk::glib::translate::ToGlibPtr;
     let Some(surface) = window.surface() else { return };
     unsafe {
-        sonoma_toplevel_set_size_limits(
+        lunar_toplevel_set_size_limits(
             surface.to_glib_none().0,
             WINDOW_WIDTH,
             WINDOW_MIN_HEIGHT,
@@ -337,8 +337,8 @@ fn wallpaper_tile(path: Option<&Path>) -> gtk::Button {
     picture.set_size_request(104, 66);
     match path {
         None => {
-            if let Ok(image) = crate::wallpaper::Image::load_bundled() {
-                picture.set_paintable(Some(&image.texture));
+            if let Some(texture) = crate::wallpaper::small_texture(None, 320, 200) {
+                picture.set_paintable(Some(&texture));
             }
         }
         Some(path) => {
@@ -347,8 +347,12 @@ fn wallpaper_tile(path: Option<&Path>) -> gtk::Button {
             let path = path.to_path_buf();
             glib::idle_add_local_once(move || {
                 let Some(picture) = weak.upgrade() else { return };
-                if let Ok(texture) = gdk::Texture::from_filename(&path) {
-                    picture.set_paintable(Some(&texture));
+                // Gallery thumbnails are ~104x66 px: decode them small instead of
+                // keeping every full-size wallpaper in memory.
+                if let Ok(pixbuf) =
+                    gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, 320, 200, true)
+                {
+                    picture.set_paintable(Some(&gdk::Texture::for_pixbuf(&pixbuf)));
                 }
             });
         }
@@ -436,8 +440,9 @@ fn build_wallpaper_page(body: &gtk::Box) {
                 return;
             };
             let current = crate::preferences::wallpaper_path();
-            if let Ok(image) = crate::wallpaper::Image::load_current() {
-                preview.set_paintable(Some(&image.texture));
+            // A small copy: the preview is only ~700x300 px.
+            if let Some(texture) = crate::wallpaper::small_texture(current.as_deref(), 1440, 900) {
+                preview.set_paintable(Some(&texture));
             }
             caption.set_text(&format!(
                 "Current Wallpaper: {}",
@@ -507,7 +512,7 @@ fn build_wallpaper_page(body: &gtk::Box) {
                         crate::preferences::set_wallpaper_path(Some(copy));
                     }
                     Err(error) => {
-                        eprintln!("sonoma-desktop: could not use {}: {error}", path.display())
+                        eprintln!("lunar-desktop: could not use {}: {error}", path.display())
                     }
                 }
             });
@@ -540,9 +545,10 @@ fn build_page(name: &str, app: &gtk::Application) -> gtk::ScrolledWindow {
                 crate::preferences::set_dock_size(scale.value());
             });
             let magnification = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 1.0);
-            // Hover magnification was intentionally removed from the Dock.
-            magnification.set_sensitive(false);
-            magnification.set_tooltip_text(Some("Dock magnification is not currently available"));
+            magnification.set_value(prefs.dock_magnification);
+            magnification.connect_value_changed(|scale| {
+                crate::preferences::set_dock_magnification(scale.value());
+            });
             let sliders = gtk::Box::new(gtk::Orientation::Horizontal, 28);
             sliders.add_css_class("settings-row");
             sliders.append(&slider_column("Size", &size, "Small", "Large"));
@@ -712,7 +718,7 @@ pub fn present(app: &gtk::Application) {
         .default_width(WINDOW_WIDTH)
         .default_height(640)
         .resizable(true)
-        .css_classes(["sonoma-settings-window"])
+        .css_classes(["lunar-settings-window"])
         .build();
     // An empty title bar makes GTK draw the window frame itself instead of
     // KWin, so the sidebar can reach the top edge. The traffic-light buttons
@@ -790,13 +796,14 @@ pub fn present(app: &gtk::Application) {
     let toolbar_handle = gtk::WindowHandle::new();
     toolbar_handle.set_child(Some(&toolbar));
 
+    // Pages are built the first time they are shown: the Wallpaper page in
+    // particular decodes images, which is wasted work (and memory) if the
+    // user never opens it.
     let stack = gtk::Stack::new();
     stack.set_hexpand(true);
     stack.set_vexpand(true);
     stack.set_transition_type(gtk::StackTransitionType::None);
-    for page in &PAGES {
-        stack.add_named(&build_page(page.name, app), Some(page.name));
-    }
+    let app_for_rows = app.clone();
 
     let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
     content.add_css_class("settings-content");
@@ -812,6 +819,9 @@ pub fn present(app: &gtk::Application) {
             return;
         };
         if let Some(stack) = stack_for_rows.upgrade() {
+            if stack.child_by_name(page.name).is_none() {
+                stack.add_named(&build_page(page.name, &app_for_rows), Some(page.name));
+            }
             stack.set_visible_child_name(page.name);
         }
         if let Some(title) = title_for_rows.upgrade() {
@@ -844,6 +854,11 @@ pub fn present(app: &gtk::Application) {
                 lock_window_width(&window);
             }
         });
+    });
+
+    // After the window is gone, give its freed memory back to the OS.
+    window.connect_destroy(|_| {
+        glib::idle_add_local_once(crate::thumbnail::release_freed_memory);
     });
 
     crate::preferences::apply_dark_mode(&window);

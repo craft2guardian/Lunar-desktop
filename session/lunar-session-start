@@ -1,0 +1,97 @@
+#!/bin/sh
+# Runs inside KWin once its Wayland socket exists (started by lunar-session).
+# Starts the background services Plasma would normally provide, then keeps the
+# Lunar shell running. When this script ends, the session ends.
+set -u
+
+echo "lunar-session-start: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-unset}"
+
+# Let D-Bus-activated programs (portals, notification daemons, ...) find the
+# compositor.
+env_names="WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP KDE_FULL_SESSION KDE_SESSION_VERSION LUNAR_SESSION"
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    dbus-update-activation-environment --systemd $env_names 2>/dev/null || true
+fi
+if command -v systemctl >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    systemctl --user import-environment $env_names 2>/dev/null || true
+fi
+
+# Use the packaged dock settings unless the user has their own.
+data_dir=$(dirname -- "$(dirname -- "$(readlink -f -- "$0")")")/share/lunar-desktop
+if [ -z "${LUNAR_DOCK_CONFIG:-}" ] \
+    && [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/lunar-desktop/dock.toml" ] \
+    && [ -f "$data_dir/config/dock.toml" ]; then
+    export LUNAR_DOCK_CONFIG="$data_dir/config/dock.toml"
+fi
+
+# Looks for a helper program in the usual libexec directories.
+find_helper() {
+    for dir in /usr/libexec /usr/lib64/libexec /usr/lib/libexec /usr/lib64 /usr/lib; do
+        if [ -x "$dir/$1" ]; then
+            echo "$dir/$1"
+            return 0
+        fi
+    done
+    command -v "$1" 2>/dev/null
+}
+
+# Starts a systemd user unit, or else the program itself. Best effort: a
+# missing service is logged and skipped.
+start_service() {
+    unit=$1
+    program=$2
+    if systemctl --user start "$unit" 2>/dev/null; then
+        echo "lunar-session-start: started $unit"
+        return
+    fi
+    helper=$(find_helper "$program") || helper=""
+    if [ -n "$helper" ]; then
+        "$helper" &
+        echo "lunar-session-start: started $helper"
+    else
+        echo "lunar-session-start: could not start $program (unit $unit); skipped"
+    fi
+}
+
+# Global shortcuts: KWin's own shortcuts (switching desktops, Alt+Tab, ...) go
+# through this service.
+start_service plasma-kglobalaccel.service kglobalacceld
+# KDE's settings daemon (theme, display and keyboard modules).
+start_service plasma-kded6.service kded6
+# Password prompts for programs that need administrator rights.
+start_service plasma-polkit-agent.service polkit-kde-authentication-agent-1
+
+# Plasma's notification popups lived in plasmashell, so a replacement is needed.
+if ! busctl --user status org.freedesktop.Notifications >/dev/null 2>&1; then
+    for daemon in mako dunst swaync; do
+        if command -v "$daemon" >/dev/null 2>&1; then
+            "$daemon" &
+            echo "lunar-session-start: started notification daemon $daemon"
+            break
+        fi
+    done
+fi
+
+# Run the shell, restarting it if it crashes. A clean exit (for example Log
+# Out) ends the session; so does crashing three times in a row right after
+# starting.
+quick_failures=0
+while :; do
+    started=$(date +%s)
+    lunar-desktop
+    status=$?
+    echo "lunar-session-start: lunar-desktop exited with status $status"
+    [ "$status" -eq 0 ] && break
+    if [ $(( $(date +%s) - started )) -lt 10 ]; then
+        quick_failures=$((quick_failures + 1))
+    else
+        quick_failures=0
+    fi
+    if [ "$quick_failures" -ge 3 ]; then
+        echo "lunar-session-start: lunar-desktop keeps failing; ending the session"
+        break
+    fi
+    sleep 1
+done

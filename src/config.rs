@@ -23,7 +23,7 @@ pub fn load_pins(entries: &[Entry]) -> HashSet<String> {
         return entries.iter().map(|entry| entry.command.clone()).collect();
     };
     let Ok(table) = text.parse::<toml::Table>() else {
-        eprintln!("sonoma-desktop: invalid dock pin configuration; using configured entries");
+        eprintln!("lunar-desktop: invalid dock pin configuration; using configured entries");
         return entries.iter().map(|entry| entry.command.clone()).collect();
     };
     table
@@ -83,7 +83,7 @@ pub fn save_pins(pins: &HashSet<String>, extras: &[Entry]) -> Result<(), String>
 }
 
 fn pins_path() -> Option<PathBuf> {
-    config_home().map(|dir| dir.join("sonoma-desktop/dock-pins.toml"))
+    config_home().map(|dir| dir.join("lunar-desktop/dock-pins.toml"))
 }
 
 /// Loads the Dock entries. Never fails: problems are reported on stderr and the
@@ -93,7 +93,7 @@ pub fn load_dock() -> Vec<Entry> {
         Some(path) => match std::fs::read_to_string(&path) {
             Ok(text) => (text, path.parent().map(Path::to_path_buf)),
             Err(e) => {
-                eprintln!("sonoma-desktop: cannot read {}: {e}", path.display());
+                eprintln!("lunar-desktop: cannot read {}: {e}", path.display());
                 (DEFAULT_CONFIG.to_string(), None)
             }
         },
@@ -101,28 +101,28 @@ pub fn load_dock() -> Vec<Entry> {
     };
 
     parse(&text, base.as_deref()).unwrap_or_else(|e| {
-        eprintln!("sonoma-desktop: invalid dock config ({e}); using the built-in default");
+        eprintln!("lunar-desktop: invalid dock config ({e}); using the built-in default");
         parse(DEFAULT_CONFIG, None).unwrap_or_default()
     })
 }
 
-/// Search order: $SONOMA_DOCK_CONFIG, ./config/dock.toml, next to the built
-/// binary's project folder, ~/.config/sonoma-desktop/dock.toml, and finally the
+/// Search order: $LUNAR_DOCK_CONFIG, ./config/dock.toml, next to the built
+/// binary's project folder, ~/.config/lunar-desktop/dock.toml, and finally the
 /// folder the project was built from.
 fn find_file() -> Option<PathBuf> {
     let mut candidates = Vec::new();
-    if let Some(p) = std::env::var_os("SONOMA_DOCK_CONFIG") {
+    if let Some(p) = std::env::var_os("LUNAR_DOCK_CONFIG") {
         candidates.push(PathBuf::from(p));
     }
     candidates.push(PathBuf::from("config/dock.toml"));
     if let Ok(exe) = std::env::current_exe() {
-        // <project>/target/<profile>/sonoma-desktop
+        // <project>/target/<profile>/lunar-desktop
         if let Some(project) = exe.ancestors().nth(3) {
             candidates.push(project.join("config/dock.toml"));
         }
     }
     if let Some(dir) = config_home() {
-        candidates.push(dir.join("sonoma-desktop/dock.toml"));
+        candidates.push(dir.join("lunar-desktop/dock.toml"));
     }
     candidates.push(Path::new(env!("CARGO_MANIFEST_DIR")).join("config/dock.toml"));
     candidates.into_iter().find(|p| p.is_file())
@@ -155,7 +155,7 @@ fn parse(text: &str, base: Option<&Path>) -> Result<Vec<Entry>, String> {
         };
         let Some(command) = get("command") else {
             eprintln!(
-                "sonoma-desktop: dock entry {} has no command; skipped",
+                "lunar-desktop: dock entry {} has no command; skipped",
                 i + 1
             );
             continue;

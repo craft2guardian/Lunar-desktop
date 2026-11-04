@@ -12,11 +12,11 @@ use std::path::Path;
 use std::process::{Command, Output};
 use std::rc::Rc;
 
-use gtk::gio;
 use gtk::prelude::*;
+use gtk::gio;
 
-const OBJECT_PATH: &str = "/dev/sonoma/DockWindowTracker";
-const INTERFACE: &str = "dev.sonoma.DockWindowTracker";
+const OBJECT_PATH: &str = "/dev/lunar/DockWindowTracker";
+const INTERFACE: &str = "dev.lunar.DockWindowTracker";
 
 #[derive(Clone, Debug, Default)]
 pub struct WindowSnapshot {
@@ -40,11 +40,11 @@ pub struct AppWindow {
 
 /// Dock identity (and Dock command) of this program's own System Settings
 /// window. It lives in the shell's process, so it is matched by title.
-pub const SETTINGS_IDENTITY: &str = "dev.sonoma.settings";
+pub const SETTINGS_IDENTITY: &str = "dev.lunar.settings";
 
 impl AppWindow {
     /// True for the System Settings window opened by this very program.
-    pub fn is_sonoma_settings(&self) -> bool {
+    pub fn is_lunar_settings(&self) -> bool {
         self.pid > 0
             && self.pid == i64::from(std::process::id())
             && self.title.trim() == crate::settings::WINDOW_TITLE
@@ -53,7 +53,7 @@ impl AppWindow {
     /// Stable KWin application identity. App IDs are authoritative; class and
     /// resource name are only used for windows whose app ID is empty.
     pub fn resolved_identity(&self) -> String {
-        if self.is_sonoma_settings() {
+        if self.is_lunar_settings() {
             return SETTINGS_IDENTITY.to_string();
         }
         let app_id = normalize(&self.desktop_file);
@@ -78,7 +78,7 @@ impl AppWindow {
             return false;
         }
         // System Settings is a real app with its own Dock tile.
-        if self.is_sonoma_settings() {
+        if self.is_lunar_settings() {
             return true;
         }
         // Windows of this program (Settings, About, the Dock itself, ...)
@@ -92,10 +92,10 @@ impl AppWindow {
             normalize(&self.resource_name),
         ];
         !identifiers.iter().any(|id| {
-            id == "dev.sonoma"
-                || id.starts_with("dev.sonoma.")
-                || id == "sonoma-desktop"
-                || id == "sonoma_desktop"
+            id == "dev.lunar"
+                || id.starts_with("dev.lunar.")
+                || id == "lunar-desktop"
+                || id == "lunar_desktop"
                 || id == "org.kde.plasmashell"
                 || id == "plasmashell"
                 || id.starts_with("org.kde.plasma.")
@@ -112,7 +112,7 @@ impl AppWindow {
             return false;
         }
         let app_id = normalize(&self.desktop_file);
-        let values = if self.is_sonoma_settings() {
+        let values = if self.is_lunar_settings() {
             vec![SETTINGS_IDENTITY.to_string()]
         } else if !app_id.is_empty() {
             // Never let a conflicting WM_CLASS override a populated app ID.
@@ -143,6 +143,11 @@ pub struct KWinWindows {
 
 struct TrackerInner {
     snapshot: Rc<RefCell<WindowSnapshot>>,
+    /// Only present when tracking through KWin.
+    kde: Option<KdeParts>,
+}
+
+struct KdeParts {
     // Keep the registered D-Bus method alive for the lifetime of the tracker.
     _connection: gio::DBusConnection,
     _node: gio::DBusNodeInfo,
@@ -240,11 +245,13 @@ impl KWinWindows {
         Ok(Self {
             inner: Rc::new(TrackerInner {
                 snapshot,
-                _connection: connection,
-                _node: node,
-                _registration,
-                _script_id: script_id,
-                plugin,
+                kde: Some(KdeParts {
+                    _connection: connection,
+                    _node: node,
+                    _registration,
+                    _script_id: script_id,
+                    plugin,
+                }),
             }),
         })
     }
@@ -260,6 +267,9 @@ impl KWinWindows {
 
 impl Drop for TrackerInner {
     fn drop(&mut self) {
+        let Some(kde) = &self.kde else {
+            return;
+        };
         let Some(qdbus) = ["qdbus6", "qdbus"]
             .into_iter()
             .find(|name| Command::new(name).arg("--help").output().is_ok())
@@ -272,7 +282,7 @@ impl Drop for TrackerInner {
                 "/Scripting",
                 "org.kde.kwin.Scripting.unloadScript",
             ])
-            .arg(&self.plugin)
+            .arg(&kde.plugin)
             .output();
     }
 }
@@ -412,7 +422,7 @@ fn load_tracker_script(service: &str) -> Result<(i32, String), String> {
         .into_iter()
         .find(|name| Command::new(name).arg("--help").output().is_ok())
         .ok_or("qdbus is not installed")?;
-    let plugin = format!("sonoma_dock_window_tracker_{}", std::process::id());
+    let plugin = format!("lunar_dock_window_tracker_{}", std::process::id());
     let path = std::env::temp_dir().join(format!("{plugin}.js"));
     let service = serde_json::to_string(service).map_err(|error| error.to_string())?;
     let object_path = serde_json::to_string(OBJECT_PATH).map_err(|error| error.to_string())?;
@@ -599,7 +609,7 @@ mod tests {
     #[test]
     fn filters_internal_windows_but_keeps_minimized_application_windows() {
         let own = AppWindow {
-            desktop_file: "dev.sonoma.Desktop".into(),
+            desktop_file: "dev.lunar.Desktop".into(),
             ..AppWindow {
                 window_id: "own".into(),
                 title: "Dock".into(),

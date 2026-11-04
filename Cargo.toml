@@ -1,5 +1,5 @@
 [package]
-name = "sonoma-desktop"
+name = "lunar-desktop"
 version = "0.1.0"
 edition = "2021"
 description = "Minimal macOS Sonoma-inspired desktop shell for KDE Plasma"
@@ -7,8 +7,8 @@ license = "MIT"
 build = "build.rs"
 
 [[bin]]
-name = "sonoma-dock-tracker"
-path = "src/bin/sonoma-dock-tracker.rs"
+name = "lunar-dock-tracker"
+path = "src/bin/lunar-dock-tracker.rs"
 
 [dependencies]
 gtk = { package = "gtk4", version = "0.11", features = ["v4_12"] }

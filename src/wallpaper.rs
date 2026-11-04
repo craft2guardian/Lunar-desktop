@@ -128,7 +128,35 @@ impl Image {
         }
     }
 
+    /// Loads a wallpaper file, shrinking it while decoding if it is larger
+    /// than the biggest screen needs. A 6000x4000 photo would otherwise sit in
+    /// memory as a ~96 MB texture (plus a GPU copy) to fill a 1080p screen.
     pub fn load_file(path: &Path) -> Result<Self, glib::Error> {
+        use gtk::gdk_pixbuf::Pixbuf;
+        let (mut max_w, mut max_h) = (0.0f64, 0.0f64);
+        if let Some(display) = gdk::Display::default() {
+            for monitor in display.monitors().iter::<gdk::Monitor>().flatten() {
+                let g = monitor.geometry();
+                let k = f64::from(monitor.scale_factor().max(1));
+                max_w = max_w.max(f64::from(g.width()) * k);
+                max_h = max_h.max(f64::from(g.height()) * k);
+            }
+        }
+        if max_w < 1.0 || max_h < 1.0 {
+            (max_w, max_h) = (3840.0, 2160.0);
+        }
+        if let Some((_, w, h)) = Pixbuf::file_info(path) {
+            // "Cover" needs both dimensions to reach the screen's.
+            let scale = (max_w / f64::from(w)).max(max_h / f64::from(h));
+            if scale < 1.0 {
+                let (nw, nh) = (
+                    (f64::from(w) * scale).ceil() as i32,
+                    (f64::from(h) * scale).ceil() as i32,
+                );
+                let pixbuf = Pixbuf::from_file_at_scale(path, nw.max(1), nh.max(1), false)?;
+                return Ok(Self::from_texture(gdk::Texture::for_pixbuf(&pixbuf)));
+            }
+        }
         Ok(Self::from_texture(gdk::Texture::from_filename(path)?))
     }
 
@@ -139,7 +167,7 @@ impl Image {
             match Self::load_file(&path) {
                 Ok(image) => return Ok(image),
                 Err(error) => eprintln!(
-                    "sonoma-desktop: could not load wallpaper {}: {error}",
+                    "lunar-desktop: could not load wallpaper {}: {error}",
                     path.display()
                 ),
             }
@@ -210,6 +238,24 @@ pub fn set_image(window: &gtk::Window, image: &Image) {
     }
 }
 
+/// A small decoded copy of a wallpaper (`None` = the bundled one) for previews
+/// and gallery thumbnails. It is decoded at no more than `max_w` x `max_h`, so
+/// a preview costs a few hundred KB instead of a full-size texture.
+pub fn small_texture(path: Option<&Path>, max_w: i32, max_h: i32) -> Option<gdk::Texture> {
+    use gtk::gdk_pixbuf::Pixbuf;
+    let pixbuf = match path {
+        Some(path) => Pixbuf::from_file_at_scale(path, max_w, max_h, true).ok()?,
+        None => {
+            let stream = gtk::gio::MemoryInputStream::from_bytes(&glib::Bytes::from_static(
+                WALLPAPER_JPEG,
+            ));
+            Pixbuf::from_stream_at_scale(&stream, max_w, max_h, true, gtk::gio::Cancellable::NONE)
+                .ok()?
+        }
+    };
+    Some(gdk::Texture::for_pixbuf(&pixbuf))
+}
+
 const IMAGE_EXTENSIONS: [&str; 7] = ["jpg", "jpeg", "png", "webp", "bmp", "tif", "tiff"];
 
 /// Where wallpapers added through Settings are kept.
@@ -273,9 +319,9 @@ pub fn window(app: &gtk::Application, image: &Image, monitor: &gdk::Monitor) -> 
 
     let window = gtk::Window::builder()
         .application(app)
-        .title("Sonoma Wallpaper")
+        .title("Lunar Wallpaper")
         .decorated(false)
-        .css_classes(["sonoma-wallpaper"])
+        .css_classes(["lunar-wallpaper"])
         .child(&picture)
         .build();
 

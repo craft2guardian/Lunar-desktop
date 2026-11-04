@@ -28,7 +28,7 @@ use gtk::{gdk, gio, glib};
 const MAX_WIDTH: usize = 360;
 const MAX_HEIGHT: usize = 260;
 /// Never keep more than this many captures running at once.
-const MAX_IN_FLIGHT: usize = 2;
+const MAX_IN_FLIGHT: usize = 1;
 
 /// Only the first few capture attempts are traced, to keep the log readable.
 static TRACED: AtomicU32 = AtomicU32::new(0);
@@ -125,7 +125,7 @@ impl Thumbnailer {
                     }
                     if !self.reported_success.replace(true) {
                         eprintln!(
-                            "sonoma-desktop: thumbnail captured for {} ({}x{})",
+                            "lunar-desktop: thumbnail captured for {} ({}x{})",
                             frame.window_id, frame.width, frame.height
                         );
                     }
@@ -146,7 +146,7 @@ impl Thumbnailer {
                     // Each distinct reason is printed once.
                     if self.reported.borrow_mut().insert(error.clone()) {
                         eprintln!(
-                            "sonoma-desktop: thumbnail capture of {id} failed: {error} \
+                            "lunar-desktop: thumbnail capture of {id} failed: {error} \
                              (if this is a permission error, run \
                              scripts/install-thumbnail-permission.sh with the path of the \
                              binary you run, then restart the shell)"
@@ -154,6 +154,9 @@ impl Thumbnailer {
                     }
                 }
             }
+        }
+        if !updated.is_empty() {
+            release_freed_memory();
         }
         updated
     }
@@ -163,6 +166,20 @@ impl Thumbnailer {
         self.textures
             .borrow_mut()
             .retain(|id, _| live.contains(id.as_str()));
+    }
+}
+
+/// Hands memory freed by the (large, short-lived) screenshot buffers back to the OS.
+pub(crate) fn release_freed_memory() {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        extern "C" {
+            fn malloc_trim(pad: usize) -> i32;
+        }
+        // SAFETY: malloc_trim only returns unused heap pages to the OS.
+        unsafe {
+            malloc_trim(0);
+        }
     }
 }
 
@@ -180,10 +197,10 @@ fn ensure_permission() {
         }
     };
     let applications = glib::user_data_dir().join("applications");
-    let path = applications.join("dev.sonoma.Desktop.desktop");
+    let path = applications.join("dev.lunar.Desktop.desktop");
     let exec = executable.to_string_lossy().replace('\\', "\\\\").replace('"', "\\\"");
     let contents = format!(
-        "[Desktop Entry]\nType=Application\nName=Sonoma Desktop\nExec=\"{exec}\"\n\
+        "[Desktop Entry]\nType=Application\nName=Lunar Desktop\nExec=\"{exec}\"\n\
          NoDisplay=true\nX-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2\n"
     );
     let unchanged = std::fs::read_to_string(&path).is_ok_and(|current| current == contents);

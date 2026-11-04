@@ -99,7 +99,7 @@ impl Desktop {
                 }
                 *self.image.borrow_mut() = image;
             }
-            Err(error) => eprintln!("sonoma-desktop: could not load the wallpaper: {error}"),
+            Err(error) => eprintln!("lunar-desktop: could not load the wallpaper: {error}"),
         }
     }
 

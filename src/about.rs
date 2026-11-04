@@ -217,7 +217,7 @@ fn system_info() -> SystemInfo {
             .unwrap_or_else(|| "Linux".to_string()),
         rows,
         footer: format!(
-            "Linux {kernel}\nSonoma Desktop {}",
+            "Linux {kernel}\nLunar Desktop {}",
             env!("CARGO_PKG_VERSION")
         ),
     }
@@ -317,7 +317,7 @@ pub fn present(app: &gtk::Application) {
         .application(app)
         .title(WINDOW_TITLE)
         .resizable(false)
-        .css_classes(["sonoma-settings-window", "sonoma-about-window"])
+        .css_classes(["lunar-settings-window", "lunar-about-window"])
         .build();
     // Same trick as System Settings: an empty title bar makes GTK draw the
     // frame, so the traffic lights can sit inside the content.

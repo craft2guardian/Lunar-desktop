@@ -25,12 +25,27 @@ fn is_kde_session() -> bool {
         || std::env::var_os("KDE_SESSION_VERSION").is_some()
 }
 
+/// One of the shell's own popup surfaces (menus, popovers): KWin reports them
+/// as windows of "lunar-desktop" with no title and no application id, and
+/// focuses them while a menu is open.
+fn is_own_popup(window: &crate::kwin_windows::AppWindow) -> bool {
+    window.desktop_file.trim().is_empty()
+        && window.title.trim().is_empty()
+        && (window.resource_name == "lunar-desktop" || window.resource_class == "lunar-desktop")
+}
+
+fn is_own_window(window: &crate::kwin_windows::AppWindow) -> bool {
+    window.resolved_identity().starts_with("dev.lunar")
+        || window.resource_name == "lunar-desktop"
+        || window.resource_class == "lunar-desktop"
+}
+
 fn active_application(snapshot: &WindowSnapshot) -> (String, Option<String>) {
     let Some(window) = snapshot.windows.iter().find(|window| window.focused) else {
         return ("Finder".to_string(), None);
     };
 
-    if window.resolved_identity().starts_with("dev.sonoma") {
+    if is_own_window(window) {
         if window.title.contains("System Settings") {
             return ("System Settings".to_string(), None);
         }
@@ -201,7 +216,7 @@ fn open_network_settings() {
             return;
         }
     }
-    eprintln!("sonoma-desktop: could not open the network settings");
+    eprintln!("lunar-desktop: could not open the network settings");
 }
 
 /// Joins a network with NetworkManager. Networks that need a new password
@@ -312,7 +327,7 @@ fn network_button(
 
     button.set_child(Some(&row));
     button.set_halign(gtk::Align::Fill);
-    button.add_css_class("sonoma-menu-item");
+    button.add_css_class("lunar-menu-item");
     if featured {
         button.add_css_class("wifi-current-item");
     }
@@ -339,11 +354,11 @@ fn wifi_menu() -> gtk::MenuButton {
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.set_offset(0, 2);
-    popover.add_css_class("sonoma-menu-popover");
+    popover.add_css_class("lunar-menu-popover");
     popover.set_autohide(true);
 
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
     menu.add_css_class("active-app-menu");
     menu.add_css_class("wifi-menu");
     menu.set_size_request(250, -1);
@@ -385,7 +400,7 @@ fn wifi_menu() -> gtk::MenuButton {
     others_row.append(&others_arrow);
     others_button.set_child(Some(&others_row));
     others_button.set_halign(gtk::Align::Fill);
-    others_button.add_css_class("sonoma-menu-item");
+    others_button.add_css_class("lunar-menu-item");
     others_button.add_css_class("wifi-heading-item");
     menu.append(&others_button);
 
@@ -574,12 +589,12 @@ fn wifi_menu() -> gtk::MenuButton {
         Some(name) => {
             let image = gtk::Image::from_icon_name(name);
             image.set_pixel_size(16);
-            image.add_css_class("sonoma-menubar-item");
+            image.add_css_class("lunar-menubar-item");
             image.upcast()
         }
         None => {
             let label = gtk::Label::new(Some("Wi-Fi"));
-            label.add_css_class("sonoma-menubar-item");
+            label.add_css_class("lunar-menubar-item");
             label.upcast()
         }
     };
@@ -589,7 +604,7 @@ fn wifi_menu() -> gtk::MenuButton {
     button.set_popover(Some(&popover));
     button.set_halign(gtk::Align::End);
     button.set_valign(gtk::Align::Center);
-    button.add_css_class("sonoma-menubar-item-button");
+    button.add_css_class("lunar-menubar-item-button");
     button.set_can_target(true);
     button
 }
@@ -598,8 +613,8 @@ fn wifi_menu() -> gtk::MenuButton {
 /// second but only touches the label when the minute actually changes.
 fn clock_label() -> gtk::Label {
     let label = gtk::Label::new(Some(&clock_text()));
-    label.add_css_class("sonoma-menubar-item");
-    label.add_css_class("sonoma-menubar-clock");
+    label.add_css_class("lunar-menubar-item");
+    label.add_css_class("lunar-menubar-clock");
     label.set_halign(gtk::Align::End);
     label.set_valign(gtk::Align::Center);
     label.set_margin_end(14);
@@ -631,7 +646,7 @@ fn append_menu_item(
     text.set_halign(gtk::Align::Start);
     button.set_child(Some(&text));
     button.set_halign(gtk::Align::Fill);
-    button.add_css_class("sonoma-menu-item");
+    button.add_css_class("lunar-menu-item");
     if let Some(action) = action {
         let popover = popover.downgrade();
         button.connect_clicked(move |_| {
@@ -648,7 +663,7 @@ fn append_menu_item(
 
 fn append_separator(menu: &gtk::Box) {
     let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-    separator.add_css_class("sonoma-menu-separator");
+    separator.add_css_class("lunar-menu-separator");
     menu.append(&separator);
 }
 
@@ -658,22 +673,24 @@ fn spawn_first_available(commands: &[&str]) {
             Ok(_) => return,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => {
-                eprintln!("sonoma-desktop: could not start {command}: {error}");
+                eprintln!("lunar-desktop: could not start {command}: {error}");
                 return;
             }
         }
     }
-    eprintln!("sonoma-desktop: no system monitor application was found");
+    eprintln!("lunar-desktop: no system monitor application was found");
 }
 
 fn run_system_action(program: &str, argument: &str) {
     if let Err(error) = std::process::Command::new(program).arg(argument).spawn() {
-        eprintln!("sonoma-desktop: could not run {program} {argument}: {error}");
+        eprintln!("lunar-desktop: could not run {program} {argument}: {error}");
     }
 }
 
 fn run_logout() {
-    if is_kde_session() {
+    // In the Lunar session there is no KDE session manager to ask; fall through
+    // to logind below.
+    if is_kde_session() && std::env::var_os("LUNAR_SESSION").is_none() {
         for command in ["qdbus6", "qdbus"] {
             match std::process::Command::new(command)
                 .args(["org.kde.ksmserver", "/KSMServer", "logout", "1", "0", "0"])
@@ -682,7 +699,7 @@ fn run_logout() {
                 Ok(_) => return,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(error) => {
-                    eprintln!("sonoma-desktop: could not request KDE logout: {error}");
+                    eprintln!("lunar-desktop: could not request KDE logout: {error}");
                     return;
                 }
             }
@@ -694,10 +711,10 @@ fn run_logout() {
             .arg(session)
             .spawn()
         {
-            eprintln!("sonoma-desktop: could not log out: {error}");
+            eprintln!("lunar-desktop: could not log out: {error}");
         }
     } else {
-        eprintln!("sonoma-desktop: XDG_SESSION_ID is not set; cannot log out");
+        eprintln!("lunar-desktop: XDG_SESSION_ID is not set; cannot log out");
     }
 }
 
@@ -706,7 +723,7 @@ fn run_logout() {
 fn new_window_identity(snapshot: &WindowSnapshot) -> Option<String> {
     let window = snapshot.windows.iter().find(|window| window.focused)?;
     let identity = window.resolved_identity();
-    if identity.starts_with("dev.sonoma") {
+    if is_own_window(window) {
         None
     } else {
         Some(identity)
@@ -743,7 +760,7 @@ fn new_window_title(identity: Option<&str>) -> &'static str {
 /// possible, starts the program directly. For Finder (no app focused) it opens
 /// a file manager.
 fn new_window(identity: Option<String>) {
-    eprintln!("sonoma-desktop: File > New Window for {identity:?}");
+    eprintln!("lunar-desktop: File > New Window for {identity:?}");
     let app_info = match &identity {
         Some(identity) => kwin_windows::installed_app_for_identity(identity),
         None => gtk::gio::AppInfo::default_for_type("inode/directory", false),
@@ -751,9 +768,9 @@ fn new_window(identity: Option<String>) {
     match app_info {
         Some(app_info) => match app_info.launch(&[], None::<&gtk::gio::AppLaunchContext>) {
             Ok(()) => return,
-            Err(error) => eprintln!("sonoma-desktop: desktop-entry launch failed: {error}"),
+            Err(error) => eprintln!("lunar-desktop: desktop-entry launch failed: {error}"),
         },
-        None => eprintln!("sonoma-desktop: no desktop entry found, trying the program directly"),
+        None => eprintln!("lunar-desktop: no desktop entry found, trying the program directly"),
     }
 
     let candidates: Vec<String> = match &identity {
@@ -768,12 +785,12 @@ fn new_window(identity: Option<String>) {
             Ok(_) => return,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
             Err(error) => {
-                eprintln!("sonoma-desktop: could not start {program}: {error}");
+                eprintln!("lunar-desktop: could not start {program}: {error}");
                 return;
             }
         }
     }
-    eprintln!("sonoma-desktop: no program could be started for New Window");
+    eprintln!("lunar-desktop: no program could be started for New Window");
 }
 
 /// The "File" title next to the app name, with its menu. Also returns the
@@ -785,13 +802,13 @@ fn file_menu(
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.set_offset(0, 2);
-    popover.add_css_class("sonoma-menu-popover");
+    popover.add_css_class("lunar-menu-popover");
     // Autohide (the default) closes the menu when you click anywhere else,
     // exactly like the Apple and app-name menus.
     popover.set_autohide(true);
 
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
     menu.add_css_class("active-app-menu");
 
     let item_label = gtk::Label::new(Some(new_window_title(None)));
@@ -799,7 +816,7 @@ fn file_menu(
     let item = gtk::Button::new();
     item.set_child(Some(&item_label));
     item.set_halign(gtk::Align::Fill);
-    item.add_css_class("sonoma-menu-item");
+    item.add_css_class("lunar-menu-item");
     let target = std::rc::Rc::clone(target);
     let popover_weak = popover.downgrade();
     item.connect_clicked(move |_| {
@@ -813,7 +830,7 @@ fn file_menu(
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("File"));
-    title.add_css_class("sonoma-menubar-item");
+    title.add_css_class("lunar-menubar-item");
     let button = gtk::MenuButton::new();
     button.set_size_request(45, HEIGHT);
     button.set_child(Some(&title));
@@ -821,8 +838,8 @@ fn file_menu(
     button.set_halign(gtk::Align::Start);
     button.set_valign(gtk::Align::Center);
     // Same classes as the working app-name button, plus the File-specific ones.
-    button.add_css_class("sonoma-active-app-button");
-    button.add_css_class("sonoma-menubar-item-button");
+    button.add_css_class("lunar-active-app-button");
+    button.add_css_class("lunar-menubar-item-button");
     button.set_can_target(true);
 
     // Left-align the menu text under "File" each time it opens, the same way
@@ -838,13 +855,13 @@ fn file_menu(
     // Diagnostics: does the menu map and close?
     popover.connect_map(|popover| {
         eprintln!(
-            "sonoma-desktop: File menu opened (child size {}x{})",
+            "lunar-desktop: File menu opened (child size {}x{})",
             popover.child().map_or(0, |child| child.width()),
             popover.child().map_or(0, |child| child.height())
         );
     });
-    popover.connect_unmap(|_| eprintln!("sonoma-desktop: File menu unmapped"));
-    popover.connect_closed(|_| eprintln!("sonoma-desktop: File menu closed signal"));
+    popover.connect_unmap(|_| eprintln!("lunar-desktop: File menu unmapped"));
+    popover.connect_closed(|_| eprintln!("lunar-desktop: File menu closed signal"));
     (button, item_label)
 }
 
@@ -902,13 +919,13 @@ fn send_ctrl_shortcut(letter: &'static str, evdev_code: u32, shift: bool) {
                 Ok(_) => continue,
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
                 Err(error) => {
-                    eprintln!("sonoma-desktop: could not run {program}: {error}");
+                    eprintln!("lunar-desktop: could not run {program}: {error}");
                     return;
                 }
             }
         }
         eprintln!(
-            "sonoma-desktop: Edit > Ctrl+{letter} needs ydotool (with ydotoold running), wtype or xdotool installed"
+            "lunar-desktop: Edit > Ctrl+{letter} needs ydotool (with ydotoold running), wtype or xdotool installed"
         );
     });
 }
@@ -920,11 +937,11 @@ fn edit_menu() -> gtk::MenuButton {
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.set_offset(0, 2);
-    popover.add_css_class("sonoma-menu-popover");
+    popover.add_css_class("lunar-menu-popover");
     popover.set_autohide(true);
 
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
     menu.add_css_class("active-app-menu");
     for (label, letter, code, shift) in [
         ("Undo", "z", 44_u32, false),
@@ -950,15 +967,15 @@ fn edit_menu() -> gtk::MenuButton {
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("Edit"));
-    title.add_css_class("sonoma-menubar-item");
+    title.add_css_class("lunar-menubar-item");
     let button = gtk::MenuButton::new();
     button.set_size_request(45, HEIGHT);
     button.set_child(Some(&title));
     button.set_popover(Some(&popover));
     button.set_halign(gtk::Align::Start);
     button.set_valign(gtk::Align::Center);
-    button.add_css_class("sonoma-active-app-button");
-    button.add_css_class("sonoma-menubar-item-button");
+    button.add_css_class("lunar-active-app-button");
+    button.add_css_class("lunar-menubar-item-button");
     button.set_can_target(true);
 
     let button_weak = button.downgrade();
@@ -998,7 +1015,7 @@ fn open_in_file_manager(uri: &str) {
     if let Err(error) =
         gtk::gio::AppInfo::launch_default_for_uri(uri, None::<&gtk::gio::AppLaunchContext>)
     {
-        eprintln!("sonoma-desktop: could not open {uri}: {error}");
+        eprintln!("lunar-desktop: could not open {uri}: {error}");
     }
 }
 
@@ -1015,11 +1032,11 @@ fn go_menu() -> gtk::MenuButton {
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.set_offset(0, 2);
-    popover.add_css_class("sonoma-menu-popover");
+    popover.add_css_class("lunar-menu-popover");
     popover.set_autohide(true);
 
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
     menu.add_css_class("active-app-menu");
 
     let places: Vec<(&str, Box<dyn Fn() -> String>)> = vec![
@@ -1058,15 +1075,15 @@ fn go_menu() -> gtk::MenuButton {
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("Go"));
-    title.add_css_class("sonoma-menubar-item");
+    title.add_css_class("lunar-menubar-item");
     let button = gtk::MenuButton::new();
     button.set_size_request(36, HEIGHT);
     button.set_child(Some(&title));
     button.set_popover(Some(&popover));
     button.set_halign(gtk::Align::Start);
     button.set_valign(gtk::Align::Center);
-    button.add_css_class("sonoma-active-app-button");
-    button.add_css_class("sonoma-menubar-item-button");
+    button.add_css_class("lunar-active-app-button");
+    button.add_css_class("lunar-menubar-item-button");
     button.set_can_target(true);
 
     let button_weak = button.downgrade();
@@ -1089,11 +1106,11 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.set_offset(0, 2);
-    popover.add_css_class("sonoma-menu-popover");
+    popover.add_css_class("lunar-menu-popover");
     popover.set_autohide(true);
 
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
     menu.add_css_class("active-app-menu");
 
     let simple = |label: &str, action: &'static str, menu: &gtk::Box, popover: &gtk::Popover| {
@@ -1122,14 +1139,14 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
     row.append(&arrow);
     sub_button.set_child(Some(&row));
     sub_button.set_halign(gtk::Align::Fill);
-    sub_button.add_css_class("sonoma-menu-item");
+    sub_button.add_css_class("lunar-menu-item");
     menu.append(&sub_button);
 
     let sub = gtk::Popover::new();
     sub.set_has_arrow(false);
     sub.set_position(gtk::PositionType::Right);
     sub.set_offset(4, -4);
-    sub.add_css_class("sonoma-menu-popover");
+    sub.add_css_class("lunar-menu-popover");
     sub.set_autohide(false);
     sub.set_parent(&sub_button);
     {
@@ -1137,7 +1154,7 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
         sub_button.connect_destroy(move |_| sub.unparent());
     }
     let sub_menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    sub_menu.add_css_class("sonoma-system-menu");
+    sub_menu.add_css_class("lunar-system-menu");
     sub_menu.add_css_class("active-app-menu");
     let sub_item = |label: &str, action: &'static str| {
         let target = std::rc::Rc::clone(target);
@@ -1203,15 +1220,15 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("Window"));
-    title.add_css_class("sonoma-menubar-item");
+    title.add_css_class("lunar-menubar-item");
     let button = gtk::MenuButton::new();
     button.set_size_request(64, HEIGHT);
     button.set_child(Some(&title));
     button.set_popover(Some(&popover));
     button.set_halign(gtk::Align::Start);
     button.set_valign(gtk::Align::Center);
-    button.add_css_class("sonoma-active-app-button");
-    button.add_css_class("sonoma-menubar-item-button");
+    button.add_css_class("lunar-active-app-button");
+    button.add_css_class("lunar-menubar-item-button");
     button.set_can_target(true);
 
     let button_weak = button.downgrade();
@@ -1225,7 +1242,7 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
 }
 
 /// Placeholder: replace with the real documentation address.
-const DOCUMENTATION_URL: &str = "https://example.com/sonoma-desktop/docs";
+const DOCUMENTATION_URL: &str = "https://example.com/lunar-desktop/docs";
 
 /// A top-level menu that Help can search: how its title is shown in results
 /// (the app-name menu changes with the focused app) and its bar button.
@@ -1304,16 +1321,16 @@ fn help_menu(
     popover.set_has_arrow(false);
     popover.set_position(gtk::PositionType::Bottom);
     popover.set_offset(0, 2);
-    popover.add_css_class("sonoma-menu-popover");
+    popover.add_css_class("lunar-menu-popover");
     popover.set_autohide(true);
 
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
     menu.add_css_class("active-app-menu");
 
     let search = gtk::SearchEntry::new();
     search.set_placeholder_text(Some("Search"));
-    search.add_css_class("sonoma-help-search");
+    search.add_css_class("lunar-help-search");
     menu.append(&search);
     let results = gtk::Box::new(gtk::Orientation::Vertical, 0);
     menu.append(&results);
@@ -1321,13 +1338,13 @@ fn help_menu(
     append_menu_item(
         &menu,
         &popover,
-        "Sonoma Desktop Documentation",
+        "Lunar Desktop Documentation",
         Some(Box::new(|| {
             if let Err(error) = gtk::gio::AppInfo::launch_default_for_uri(
                 DOCUMENTATION_URL,
                 None::<&gtk::gio::AppLaunchContext>,
             ) {
-                eprintln!("sonoma-desktop: could not open {DOCUMENTATION_URL}: {error}");
+                eprintln!("lunar-desktop: could not open {DOCUMENTATION_URL}: {error}");
             }
         })),
     );
@@ -1407,15 +1424,15 @@ fn help_menu(
     });
 
     let title = gtk::Label::new(Some("Help"));
-    title.add_css_class("sonoma-menubar-item");
+    title.add_css_class("lunar-menubar-item");
     let button = gtk::MenuButton::new();
     button.set_size_request(45, HEIGHT);
     button.set_child(Some(&title));
     button.set_popover(Some(&popover));
     button.set_halign(gtk::Align::Start);
     button.set_valign(gtk::Align::Center);
-    button.add_css_class("sonoma-active-app-button");
-    button.add_css_class("sonoma-menubar-item-button");
+    button.add_css_class("lunar-active-app-button");
+    button.add_css_class("lunar-menubar-item-button");
     button.set_can_target(true);
 
     let button_weak = button.downgrade();
@@ -1435,7 +1452,7 @@ fn fixed_title(title: &str) -> Rc<dyn Fn() -> String> {
 
 fn system_menu(popover: &gtk::Popover, app: &gtk::Application) -> gtk::Box {
     let menu = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    menu.add_css_class("sonoma-system-menu");
+    menu.add_css_class("lunar-system-menu");
 
     let about_app = app.clone();
     append_menu_item(
@@ -1458,16 +1475,7 @@ fn system_menu(popover: &gtk::Popover, app: &gtk::Application) -> gtk::Box {
         popover,
         "Force Quit",
         Some(Box::new(|| {
-            if is_kde_session() {
-                spawn_first_available(&["plasma-systemmonitor", "ksysguard"]);
-            } else {
-                spawn_first_available(&[
-                    "gnome-system-monitor",
-                    "xfce4-taskmanager",
-                    "mate-system-monitor",
-                    "plasma-systemmonitor",
-                ]);
-            }
+            spawn_first_available(&["plasma-systemmonitor", "ksysguard"]);
         })),
     );
     append_separator(&menu);
@@ -1509,7 +1517,7 @@ fn system_menu(popover: &gtk::Popover, app: &gtk::Application) -> gtk::Box {
 }
 
 /// Distance from the active-app menu's left edge to the text of its items:
-/// `.active-app-menu` padding (3px) + `.active-app-menu button.sonoma-menu-item`
+/// `.active-app-menu` padding (3px) + `.active-app-menu button.lunar-menu-item`
 /// padding (7px) in style.rs. Keep in sync with those rules.
 const ACTIVE_MENU_TEXT_INSET: f32 = 10.0;
 
@@ -1600,9 +1608,9 @@ pub fn window(
         Rc::new(std::cell::RefCell::new(None));
     // True while Help is open: the focused-app tracker pauses.
     let help_open = Rc::new(std::cell::Cell::new(false));
-    if is_kde_session() {
+    {
         let logo = gtk::Overlay::new();
-        logo.add_css_class("sonoma-kde-logo");
+        logo.add_css_class("lunar-kde-logo");
         logo.set_size_request(20, 20);
         logo.set_can_target(false);
         let light_logo = gtk::Image::new();
@@ -1613,7 +1621,7 @@ pub fn window(
         }
         light_logo.set_pixel_size(20);
         light_logo.set_can_target(false);
-        light_logo.add_css_class("sonoma-kde-logo-light");
+        light_logo.add_css_class("lunar-kde-logo-light");
         logo.set_child(Some(&light_logo));
         let dark_logo = gtk::Image::new();
         if let Ok(texture) = gdk::Texture::from_bytes(&glib::Bytes::from_static(include_bytes!(
@@ -1623,13 +1631,13 @@ pub fn window(
         }
         dark_logo.set_pixel_size(20);
         dark_logo.set_can_target(false);
-        dark_logo.add_css_class("sonoma-kde-logo-dark");
+        dark_logo.add_css_class("lunar-kde-logo-dark");
         logo.add_overlay(&dark_logo);
         let popover = gtk::Popover::new();
         popover.set_has_arrow(false);
         popover.set_position(gtk::PositionType::Bottom);
         popover.set_offset(6, 2);
-        popover.add_css_class("sonoma-menu-popover");
+        popover.add_css_class("lunar-menu-popover");
         popover.set_child(Some(&system_menu(&popover, app)));
 
         context_menu::attach_blur(&popover);
@@ -1643,7 +1651,7 @@ pub fn window(
         menu_button.set_valign(gtk::Align::Center);
         menu_button.set_margin_start(6);
         menu_button.set_tooltip_text(Some("KDE"));
-        menu_button.add_css_class("sonoma-menu-button");
+        menu_button.add_css_class("lunar-menu-button");
         let menu_button_weak = menu_button.downgrade();
         popover.connect_visible_notify(move |popover| {
             if let Some(menu_button) = menu_button_weak.upgrade() {
@@ -1655,22 +1663,22 @@ pub fn window(
             }
         });
         let active_app = gtk::Label::new(Some("Finder"));
-        active_app.add_css_class("sonoma-active-app");
+        active_app.add_css_class("lunar-active-app");
         let active_menu = gtk::Popover::new();
         active_menu.set_has_arrow(false);
         active_menu.set_position(gtk::PositionType::Bottom);
         active_menu.set_offset(0, 2);
-        active_menu.add_css_class("sonoma-menu-popover");
+        active_menu.add_css_class("lunar-menu-popover");
         let active_menu_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        active_menu_content.add_css_class("sonoma-system-menu");
+        active_menu_content.add_css_class("lunar-system-menu");
         active_menu_content.add_css_class("active-app-menu");
         let quit_action = gtk::Button::new();
         let quit_action_label = gtk::Label::new(Some("Quit Finder"));
         quit_action_label.set_halign(gtk::Align::Start);
         quit_action.set_child(Some(&quit_action_label));
         quit_action.set_halign(gtk::Align::Fill);
-        quit_action.add_css_class("sonoma-menu-item");
-        quit_action.add_css_class("sonoma-context-menu-item");
+        quit_action.add_css_class("lunar-menu-item");
+        quit_action.add_css_class("lunar-context-menu-item");
         quit_action.set_sensitive(false);
         active_menu_content.append(&quit_action);
         active_menu.set_child(Some(&active_menu_content));
@@ -1680,6 +1688,7 @@ pub fn window(
         let quit_target_for_action = std::rc::Rc::clone(&quit_target);
         let active_menu_for_action = active_menu.downgrade();
         quit_action.connect_clicked(move |_| {
+            eprintln!("lunar-desktop: app menu Quit item clicked");
             if let Some(target) = quit_target_for_action.borrow().clone() {
                 crate::dock::run_window_action(target, "quit");
             }
@@ -1706,13 +1715,33 @@ pub fn window(
             }
         });
 
+        // Diagnostics, as for the File menu: does the app-name menu map and close?
+        active_menu.connect_map(|popover| {
+            eprintln!(
+                "lunar-desktop: app menu opened (child size {}x{})",
+                popover.child().map_or(0, |child| child.width()),
+                popover.child().map_or(0, |child| child.height())
+            );
+        });
+        active_menu.connect_unmap(|popover| {
+            eprintln!(
+                "lunar-desktop: app menu unmapped (visible={} root_focus={:?})",
+                popover.is_visible(),
+                popover.root().and_then(|root| root.focus()).map(|w| w.type_().name())
+            );
+        });
+        active_menu.connect_closed(|_| eprintln!("lunar-desktop: app menu closed signal"));
+
+        // Configured exactly like the File button, whose menu does open.
+        active_menu.set_autohide(true);
+        active_app_button.set_can_target(true);
         active_app_button.set_child(Some(&active_app));
         active_app_button.set_popover(Some(&active_menu));
         active_app_button.set_halign(gtk::Align::Start);
         active_app_button.set_valign(gtk::Align::Center);
-        active_app_button.add_css_class("sonoma-active-app-button");
+        active_app_button.add_css_class("lunar-active-app-button");
         // Same pill highlight while its menu is open as the File button.
-        active_app_button.add_css_class("sonoma-menubar-item-button");
+        active_app_button.add_css_class("lunar-menubar-item-button");
 
         let menu_group = gtk::Box::new(gtk::Orientation::Horizontal, 5);
         menu_group.set_halign(gtk::Align::Start);
@@ -1775,6 +1804,13 @@ pub fn window(
                 let revision = tracker.revision();
                 if last_revision.replace(revision) != revision {
                     let snapshot = tracker.snapshot();
+                    // A menu of our own just took focus (e.g. this very menu
+                    // opening): keep showing the app that was frontmost,
+                    // instead of rewriting the label under the open menu.
+                    if snapshot.windows.iter().any(|w| w.focused && is_own_popup(w)) {
+                        eprintln!("lunar-desktop: focus is on a shell popup; app name left as is");
+                        return glib::ControlFlow::Continue;
+                    }
                     let (name, target) = active_application(&snapshot);
                     let identity = new_window_identity(&snapshot);
                     if let Some(label) = new_window_label_weak.upgrade() {
@@ -1786,8 +1822,7 @@ pub fn window(
                             .windows
                             .iter()
                             .find(|window| {
-                                window.focused
-                                    && !window.resolved_identity().starts_with("dev.sonoma")
+                                window.focused && !is_own_window(window)
                             })
                             .map(|window| window.window_id.clone()),
                     );
@@ -1799,6 +1834,7 @@ pub fn window(
                         }
                         go_button.set_visible(finder);
                     }
+                    eprintln!("lunar-desktop: focused app is now {name:?} (revision {revision})");
                     if let Some(label) = active_app_weak.upgrade() {
                         label.set_text(&name);
                     } else {
@@ -1823,15 +1859,16 @@ pub fn window(
     status.set_halign(gtk::Align::End);
     status.set_valign(gtk::Align::Center);
     status.append(&wifi_menu());
+    status.append(&crate::control_center::control_center_button(app));
     status.append(&clock_label());
     content.add_overlay(&status);
 
     let window = gtk::Window::builder()
         .application(app)
-        .title("Sonoma Menu Bar")
+        .title("Lunar Menu Bar")
         .decorated(false)
         .default_height(HEIGHT)
-        .css_classes(["sonoma-menubar"])
+        .css_classes(["lunar-menubar"])
         .child(&content)
         .build();
     crate::preferences::apply_dark_mode(&window);
@@ -1849,15 +1886,15 @@ pub fn window(
     }
     let layer_shell_active = layer_shell_available && window.is_layer_window();
     eprintln!(
-        "sonoma-desktop: menubar layer-shell probe gdk_wayland={gdk_wayland} protocol_version={layer_protocol_version} available={layer_shell_available} initialized={layer_shell_active} library_support_check={library_support_check}"
+        "lunar-desktop: menubar layer-shell probe gdk_wayland={gdk_wayland} protocol_version={layer_protocol_version} available={layer_shell_available} initialized={layer_shell_active} library_support_check={library_support_check}"
     );
     if layer_shell_active {
         eprintln!(
-            "sonoma-desktop: menubar uses Wayland overlay layer with {HEIGHT}px exclusive zone"
+            "lunar-desktop: menubar uses Wayland overlay layer with {HEIGHT}px exclusive zone"
         );
         // An exclusive zone makes KWin's maximized work area begin below the
         // menubar. Plasma's old panel-behavior hint is deprecated in Plasma 6.
-        window.set_namespace(Some("sonoma-menubar"));
+        window.set_namespace(Some("lunar-menubar"));
         window.set_monitor(Some(monitor));
         // Fullscreen clients may be stacked above the top layer; overlay is
         // the layer-shell level intended to remain visible over them.
@@ -1869,7 +1906,7 @@ pub fn window(
         window.set_keyboard_mode(KeyboardMode::None);
         *window_slot.borrow_mut() = Some(window.downgrade());
     } else {
-        eprintln!("sonoma-desktop: menubar layer-shell unavailable; using Plasma panel fallback (fullscreen windows may cover it)");
+        eprintln!("lunar-desktop: menubar layer-shell unavailable; using Plasma panel fallback (fullscreen windows may cover it)");
         // Retain the existing Plasma-shell role as a compositor fallback.
         kde_shell::configure_window(&window, monitor, Role::Panel, geometry.x(), geometry.y());
     }
@@ -1925,6 +1962,11 @@ fn enable_hover_switching(window: &gtk::Window) {
             .and_then(|widget| widget.downcast::<gtk::MenuButton>().ok());
         if let Some(target) = target {
             if &target != open && buttons.contains(&target) && target.is_sensitive() {
+                eprintln!(
+                    "lunar-desktop: hover switch closes {:?} for {:?}",
+                    open.css_classes(),
+                    target.css_classes()
+                );
                 open.popdown();
                 target.popup();
             }

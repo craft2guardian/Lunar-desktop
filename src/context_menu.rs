@@ -5,30 +5,37 @@ use std::{cell::RefCell, ffi::c_void, ptr, rc::Rc};
 use gtk::prelude::*;
 
 unsafe extern "C" {
-    fn sonoma_kde_blur_enable(popover: *mut gtk::ffi::GtkPopover) -> *mut c_void;
-    fn sonoma_kde_blur_enable_popover_region(
+    fn lunar_kde_blur_enable(popover: *mut gtk::ffi::GtkPopover) -> *mut c_void;
+    fn lunar_kde_blur_enable_popover_region(
         popover: *mut gtk::ffi::GtkPopover,
         region_widget: *mut gtk::ffi::GtkWidget,
         corner_radius: i32,
     ) -> *mut c_void;
-    fn sonoma_kde_blur_update_popover_region(
+    fn lunar_kde_blur_update_popover_region(
         handle: *mut c_void,
         popover: *mut gtk::ffi::GtkPopover,
         region_widget: *mut gtk::ffi::GtkWidget,
         corner_radius: i32,
     ) -> i32;
-    fn sonoma_kde_blur_enable_widget(
+    fn lunar_kde_blur_update_popover_regions(
+        handle: *mut c_void,
+        popover: *mut gtk::ffi::GtkPopover,
+        widgets: *mut *mut gtk::ffi::GtkWidget,
+        radii: *const i32,
+        count: i32,
+    ) -> i32;
+    fn lunar_kde_blur_enable_widget(
         window: *mut gtk::ffi::GtkWindow,
         region_widget: *mut gtk::ffi::GtkWidget,
         corner_radius: i32,
     ) -> *mut c_void;
-    fn sonoma_kde_blur_update_widget(
+    fn lunar_kde_blur_update_widget(
         handle: *mut c_void,
         window: *mut gtk::ffi::GtkWindow,
         region_widget: *mut gtk::ffi::GtkWidget,
         corner_radius: i32,
     ) -> i32;
-    fn sonoma_kde_blur_disable(handle: *mut c_void);
+    fn lunar_kde_blur_disable(handle: *mut c_void);
 }
 
 /// A blue glass popover menu that can be attached to any GTK widget.
@@ -44,10 +51,10 @@ impl ContextMenu {
         let popover = gtk::Popover::new();
         popover.set_has_arrow(false);
         popover.set_position(position);
-        popover.add_css_class("sonoma-menu-popover");
+        popover.add_css_class("lunar-menu-popover");
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        content.add_css_class("sonoma-system-menu");
+        content.add_css_class("lunar-system-menu");
         for class in style_classes {
             content.add_css_class(class);
         }
@@ -117,8 +124,8 @@ impl ContextMenu {
 
     pub fn append_separator(&self) {
         let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
-        separator.add_css_class("sonoma-menu-separator");
-        separator.add_css_class("sonoma-context-menu-separator");
+        separator.add_css_class("lunar-menu-separator");
+        separator.add_css_class("lunar-context-menu-separator");
         self.content.append(&separator);
     }
 
@@ -162,12 +169,12 @@ fn menu_button(title: &str, trailing: Option<&str>) -> gtk::Button {
     contents.append(&text);
     if let Some(trailing) = trailing {
         let arrow = gtk::Label::new(Some(trailing));
-        arrow.add_css_class("sonoma-context-menu-arrow");
+        arrow.add_css_class("lunar-context-menu-arrow");
         contents.append(&arrow);
     }
     button.set_child(Some(&contents));
-    button.add_css_class("sonoma-menu-item");
-    button.add_css_class("sonoma-context-menu-item");
+    button.add_css_class("lunar-menu-item");
+    button.add_css_class("lunar-context-menu-item");
     button.set_halign(gtk::Align::Fill);
     button
 }
@@ -187,7 +194,7 @@ pub fn attach_blur(popover: &gtk::Popover) {
             };
             let needs_blur = on_map.borrow().is_null();
             if popover.is_mapped() && needs_blur {
-                let blur = unsafe { sonoma_kde_blur_enable(popover.as_ptr()) };
+                let blur = unsafe { lunar_kde_blur_enable(popover.as_ptr()) };
                 *on_map.borrow_mut() = blur;
             }
         });
@@ -200,7 +207,7 @@ pub fn attach_blur(popover: &gtk::Popover) {
     popover.connect_unrealize(move |_| {
         let handle = std::mem::replace(&mut *on_unrealize.borrow_mut(), ptr::null_mut());
         if !handle.is_null() {
-            unsafe { sonoma_kde_blur_disable(handle) };
+            unsafe { lunar_kde_blur_disable(handle) };
         }
     });
 }
@@ -230,7 +237,7 @@ pub fn attach_blur_region(
             let mut active = on_map.borrow_mut();
             if active.is_null() {
                 *active = unsafe {
-                    sonoma_kde_blur_enable_popover_region(
+                    lunar_kde_blur_enable_popover_region(
                         popover.as_ptr(),
                         region.as_ptr(),
                         corner_radius,
@@ -239,7 +246,7 @@ pub fn attach_blur_region(
             } else {
                 // The popup surface is reused; refresh the region each time.
                 unsafe {
-                    sonoma_kde_blur_update_popover_region(
+                    lunar_kde_blur_update_popover_region(
                         *active,
                         popover.as_ptr(),
                         region.as_ptr(),
@@ -253,7 +260,7 @@ pub fn attach_blur_region(
     popover.connect_unrealize(move |_| {
         let handle = std::mem::replace(&mut *on_unrealize.borrow_mut(), ptr::null_mut());
         if !handle.is_null() {
-            unsafe { sonoma_kde_blur_disable(handle) };
+            unsafe { lunar_kde_blur_disable(handle) };
         }
     });
 
@@ -274,7 +281,7 @@ pub fn attach_blur_region(
                 let active = *handle.borrow();
                 if popover.is_mapped() && !active.is_null() {
                     unsafe {
-                        sonoma_kde_blur_update_popover_region(
+                        lunar_kde_blur_update_popover_region(
                             active,
                             popover.as_ptr(),
                             region.as_ptr(),
@@ -284,6 +291,84 @@ pub fn attach_blur_region(
                 }
             });
         }
+    })
+}
+
+/// Blurs only the given widgets (each with its own corner radius) and nothing
+/// between or around them. Returns a callback that re-fits the blur.
+pub fn attach_blur_regions(
+    popover: &gtk::Popover,
+    regions: Vec<(gtk::Widget, i32)>,
+) -> Rc<dyn Fn()> {
+    let regions = Rc::new(regions);
+    let handle: Rc<RefCell<*mut c_void>> = Rc::new(RefCell::new(ptr::null_mut()));
+
+    let apply = {
+        let regions = Rc::clone(&regions);
+        let handle = Rc::clone(&handle);
+        move |popover: &gtk::Popover| {
+            let mut widgets: Vec<*mut gtk::ffi::GtkWidget> = regions
+                .iter()
+                .map(|(widget, _)| widget.as_ptr())
+                .collect();
+            let radii: Vec<i32> = regions.iter().map(|(_, radius)| *radius).collect();
+            let mut active = handle.borrow_mut();
+            if active.is_null() {
+                // The first region creates the effect; all of them are applied below.
+                let Some((first, radius)) = regions.first() else {
+                    return;
+                };
+                *active = unsafe {
+                    lunar_kde_blur_enable_popover_region(popover.as_ptr(), first.as_ptr(), *radius)
+                };
+            }
+            if !active.is_null() {
+                unsafe {
+                    lunar_kde_blur_update_popover_regions(
+                        *active,
+                        popover.as_ptr(),
+                        widgets.as_mut_ptr(),
+                        radii.as_ptr(),
+                        widgets.len() as i32,
+                    );
+                }
+            }
+        }
+    };
+    let apply = Rc::new(apply);
+
+    let on_map = Rc::clone(&apply);
+    popover.connect_map(move |popover| {
+        let weak_popover = popover.downgrade();
+        let on_map = Rc::clone(&on_map);
+        gtk::glib::idle_add_local_once(move || {
+            let Some(popover) = weak_popover.upgrade() else {
+                return;
+            };
+            if popover.is_mapped() {
+                on_map(&popover);
+            }
+        });
+    });
+    let on_unrealize = Rc::clone(&handle);
+    popover.connect_unrealize(move |_| {
+        let handle = std::mem::replace(&mut *on_unrealize.borrow_mut(), ptr::null_mut());
+        if !handle.is_null() {
+            unsafe { lunar_kde_blur_disable(handle) };
+        }
+    });
+
+    let refresh_popover = popover.downgrade();
+    Rc::new(move || {
+        let weak_popover = refresh_popover.clone();
+        let apply = Rc::clone(&apply);
+        gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(60), move || {
+            if let Some(popover) = weak_popover.upgrade() {
+                if popover.is_mapped() {
+                    apply(&popover);
+                }
+            }
+        });
     })
 }
 
@@ -316,7 +401,7 @@ pub fn attach_window_widget_blur(
                 let mut active_handle = handle.borrow_mut();
                 if active_handle.is_null() {
                     *active_handle = unsafe {
-                        sonoma_kde_blur_enable_widget(
+                        lunar_kde_blur_enable_widget(
                             window.as_ptr(),
                             region.as_ptr(),
                             corner_radius,
@@ -324,7 +409,7 @@ pub fn attach_window_widget_blur(
                     };
                 } else {
                     let updated = unsafe {
-                        sonoma_kde_blur_update_widget(
+                        lunar_kde_blur_update_widget(
                             *active_handle,
                             window.as_ptr(),
                             region.as_ptr(),
@@ -332,7 +417,7 @@ pub fn attach_window_widget_blur(
                         )
                     };
                     if updated == 0 {
-                        eprintln!("sonoma-desktop: KWin backdrop blur region update failed");
+                        eprintln!("lunar-desktop: KWin backdrop blur region update failed");
                     }
                 }
             }
@@ -378,7 +463,7 @@ pub fn attach_window_widget_blur(
         unmap_state.set(false);
         let handle = std::mem::replace(&mut *unmap_handle.borrow_mut(), ptr::null_mut());
         if !handle.is_null() {
-            unsafe { sonoma_kde_blur_disable(handle) };
+            unsafe { lunar_kde_blur_disable(handle) };
         }
     });
     refresh

@@ -23,7 +23,7 @@ mod imp {
 
     #[glib::object_subclass]
     impl ObjectSubclass for GlassStrip {
-        const NAME: &'static str = "SonomaGlassStrip";
+        const NAME: &'static str = "LunarGlassStrip";
         type Type = super::GlassStrip;
         type ParentType = gtk::Widget;
     }

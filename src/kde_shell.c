@@ -124,13 +124,13 @@ static struct wl_proxy *ensure_plasma_shell(struct wl_display *display) {
     return plasma_shell;
 }
 
-int sonoma_kde_shell_is_supported(GdkDisplay *gdk_display) {
+int lunar_kde_shell_is_supported(GdkDisplay *gdk_display) {
     if (!gdk_display || !GDK_IS_WAYLAND_DISPLAY(gdk_display)) return 0;
     struct wl_display *display = gdk_wayland_display_get_wl_display(gdk_display);
     return display && ensure_plasma_shell(display) ? 1 : 0;
 }
 
-void *sonoma_kde_shell_attach(GtkWindow *window, GdkMonitor *monitor,
+void *lunar_kde_shell_attach(GtkWindow *window, GdkMonitor *monitor,
                               uint32_t role, int32_t x, int32_t y) {
     if (!window || !monitor) return NULL;
     GdkSurface *gdk_surface = gtk_native_get_surface(GTK_NATIVE(window));
@@ -173,7 +173,7 @@ void *sonoma_kde_shell_attach(GtkWindow *window, GdkMonitor *monitor,
     return handle;
 }
 
-void sonoma_kde_shell_detach(void *opaque) {
+void lunar_kde_shell_detach(void *opaque) {
     struct shell_handle *handle = opaque;
     if (!handle) return;
     wl_proxy_marshal_flags(handle->surface_role, 0, NULL,
@@ -182,7 +182,7 @@ void sonoma_kde_shell_detach(void *opaque) {
     free(handle);
 }
 
-void sonoma_kde_shell_set_position(void *opaque, int32_t x, int32_t y) {
+void lunar_kde_shell_set_position(void *opaque, int32_t x, int32_t y) {
     struct shell_handle *handle = opaque;
     if (!handle || !handle->surface_role) return;
     wl_proxy_marshal_flags(handle->surface_role, 2, NULL,
@@ -195,7 +195,7 @@ void sonoma_kde_shell_set_position(void *opaque, int32_t x, int32_t y) {
  * compositor directly. The minimum size is set GTK-side via
  * gtk_widget_set_size_request() (see settings.rs); a maximum width cannot be
  * enforced this way. Kept as a no-op so the Rust caller still links. */
-void sonoma_toplevel_set_size_limits(GdkSurface *surface, int32_t min_width,
+void lunar_toplevel_set_size_limits(GdkSurface *surface, int32_t min_width,
                                      int32_t min_height, int32_t max_width,
                                      int32_t max_height) {
     (void)surface; (void)min_width; (void)min_height;

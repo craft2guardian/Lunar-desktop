@@ -10,6 +10,8 @@ pub struct Preferences {
     /// 0–100, with 50 preserving the dock's original monitor-scaled size.
     pub dock_size: f64,
     pub dock_auto_hide: bool,
+    /// 0–100: how much icons grow under the pointer (0 = off, 100 = double).
+    pub dock_magnification: f64,
     pub dark_mode: bool,
     /// On: a minimised window disappears into its application's Dock icon.
     /// Off: it gets its own thumbnail tile on the right of the Dock.
@@ -21,6 +23,7 @@ impl Default for Preferences {
         Self {
             dock_size: 50.0,
             dock_auto_hide: false,
+            dock_magnification: 60.0,
             dark_mode: false,
             minimize_into_icon: true,
         }
@@ -125,12 +128,17 @@ pub fn observe_dock_size(observer: &std::rc::Rc<dyn Fn(f64)>) {
 
 pub fn persist_current() {
     if let Err(error) = save(current()) {
-        eprintln!("sonoma-desktop: could not save settings: {error}");
+        eprintln!("lunar-desktop: could not save settings: {error}");
     }
 }
 
 pub fn set_dock_auto_hide(value: bool) {
     update(|preferences| preferences.dock_auto_hide = value);
+}
+
+/// Sets the hover magnification (0–100, 0 = off).
+pub fn set_dock_magnification(value: f64) {
+    update(|preferences| preferences.dock_magnification = value.clamp(0.0, 100.0));
 }
 
 pub fn set_minimize_into_icon(value: bool) {
@@ -184,17 +192,43 @@ fn update(change: impl FnOnce(&mut Preferences)) {
         let mut current = current.borrow_mut();
         change(&mut current);
         if let Err(error) = save(*current) {
-            eprintln!("sonoma-desktop: could not save settings: {error}");
+            eprintln!("lunar-desktop: could not save settings: {error}");
         }
     });
 }
 
-/// `~/.config/sonoma-desktop` (or under `$XDG_CONFIG_HOME`).
+/// `~/.config/lunar-desktop` (or under `$XDG_CONFIG_HOME`).
 pub fn config_dir() -> Option<PathBuf> {
     std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))
-        .map(|directory| directory.join("sonoma-desktop"))
+        .map(|directory| directory.join("lunar-desktop"))
+}
+
+/// One-time move of the settings folder from its old name (`sonoma-desktop`)
+/// to `lunar-desktop`, so the chosen wallpaper and preferences survive the
+/// rename. Does nothing if the new folder already exists.
+pub fn migrate_old_config() {
+    let Some(new_dir) = config_dir() else { return };
+    let Some(parent) = new_dir.parent() else { return };
+    let old_dir = parent.join(concat!("sonoma", "-desktop"));
+    if new_dir.exists() || !old_dir.is_dir() {
+        return;
+    }
+    if std::fs::rename(&old_dir, &new_dir).is_err() {
+        return;
+    }
+    // settings.toml keeps the wallpaper as an absolute path into the old folder.
+    let settings = new_dir.join("settings.toml");
+    if let Ok(text) = std::fs::read_to_string(&settings) {
+        let fixed = text.replace(
+            concat!("/sonoma", "-desktop/"),
+            "/lunar-desktop/",
+        );
+        if fixed != text {
+            let _ = std::fs::write(&settings, fixed);
+        }
+    }
 }
 
 fn path() -> Option<PathBuf> {
@@ -216,7 +250,7 @@ fn load() -> Preferences {
         return Preferences::default();
     };
     let Ok(table) = text.parse::<toml::Table>() else {
-        eprintln!("sonoma-desktop: invalid settings file; using defaults");
+        eprintln!("lunar-desktop: invalid settings file; using defaults");
         return Preferences::default();
     };
     Preferences {
@@ -233,6 +267,15 @@ fn load() -> Preferences {
             .get("dock_auto_hide")
             .and_then(toml::Value::as_bool)
             .unwrap_or(false),
+        dock_magnification: table
+            .get("dock_magnification")
+            .and_then(|value| {
+                value
+                    .as_float()
+                    .or_else(|| value.as_integer().map(|integer| integer as f64))
+            })
+            .unwrap_or(60.0)
+            .clamp(0.0, 100.0),
         dark_mode: table
             .get("dark_mode")
             .and_then(toml::Value::as_bool)
@@ -249,9 +292,10 @@ fn save(preferences: Preferences) -> Result<(), String> {
     let parent = path.parent().ok_or("invalid settings path")?;
     std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     let mut contents = format!(
-        "dock_size = {}\ndock_auto_hide = {}\ndark_mode = {}\nminimize_into_icon = {}\n",
+        "dock_size = {}\ndock_auto_hide = {}\ndock_magnification = {}\ndark_mode = {}\nminimize_into_icon = {}\n",
         preferences.dock_size,
         preferences.dock_auto_hide,
+        preferences.dock_magnification,
         preferences.dark_mode,
         preferences.minimize_into_icon
     );

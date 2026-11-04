@@ -190,7 +190,7 @@ pub fn present(app: &gtk::Application) {
         .default_width(980)
         .default_height(680)
         .resizable(true)
-        .css_classes(["sonoma-settings-window"])
+        .css_classes(["lunar-settings-window"])
         .build();
     // An empty title bar makes GTK draw the window frame itself instead of
     // KWin, so the sidebar can reach the top edge. The traffic-light buttons

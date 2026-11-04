@@ -8,7 +8,7 @@
 
 /// Gap between neighbouring tiles in the icon row.
 pub const ROW_SPACING: f64 = 3.0;
-/// Gap between the icon row, the resize handle and the Trash.
+/// Gap between the app row, resize handle, minimized row and Trash.
 pub const CONTENT_SPACING: f64 = 2.0;
 /// Width of the resize handle (the separator) between apps and Trash.
 pub const HANDLE_WIDTH: f64 = 12.0;
@@ -38,14 +38,26 @@ pub fn scale_at(distance: f64, size: f64, amount: f64, max_scale: f64) -> f64 {
 pub struct RestLayout {
     /// Centre of each visible app tile, in order.
     pub tile_centers: Vec<f64>,
+    /// Centre of each visible minimized-window tile, in order.
+    pub minimized_centers: Vec<f64>,
     /// Centre of the Trash.
     pub trash_center: f64,
-    /// Width of the whole content (tiles, handle and Trash).
+    /// Width of the whole content (tiles, handle, minimized tiles and Trash).
     pub width: f64,
 }
 
 /// Lays out `tiles` visible app tiles of `size` px, then the handle, then Trash.
 pub fn rest_layout(tiles: usize, size: f64) -> RestLayout {
+    rest_layout_with_minimized(tiles, size, &[])
+}
+
+/// Like `rest_layout`, but accounts for the optional minimized-window row.
+/// The widths are the resting (unmagnified) widths of its visible tiles.
+pub fn rest_layout_with_minimized(
+    tiles: usize,
+    size: f64,
+    minimized_widths: &[f64],
+) -> RestLayout {
     let mut x = 0.0;
     let mut tile_centers = Vec::with_capacity(tiles);
     for _ in 0..tiles {
@@ -56,13 +68,30 @@ pub fn rest_layout(tiles: usize, size: f64) -> RestLayout {
         // No gap after the last tile (the Box only puts gaps *between* children).
         x -= ROW_SPACING;
     }
-    // The row is always a child of the content box, even when it is empty.
+
+    // The app row is always a child of the content box, even when empty.
     x += CONTENT_SPACING;
-    x += HANDLE_WIDTH + CONTENT_SPACING;
+    x += HANDLE_WIDTH;
+
+    let mut minimized_centers = Vec::with_capacity(minimized_widths.len());
+    if !minimized_widths.is_empty() {
+        x += CONTENT_SPACING;
+        for (index, width) in minimized_widths.iter().copied().enumerate() {
+            minimized_centers.push(x + width / 2.0);
+            x += width;
+            if index + 1 < minimized_widths.len() {
+                x += ROW_SPACING;
+            }
+        }
+    }
+    // There is always a gap between the last visible child and the Trash.
+    x += CONTENT_SPACING;
     let trash_center = x + size / 2.0;
     x += size;
+
     RestLayout {
         tile_centers,
+        minimized_centers,
         trash_center,
         width: x,
     }
@@ -118,6 +147,15 @@ mod tests {
         let layout = rest_layout(0, 50.0);
         assert!(layout.tile_centers.is_empty());
         assert_eq!(layout.width, 2.0 + 12.0 + 2.0 + 50.0);
+    }
+
+    #[test]
+    fn rest_layout_places_minimized_tiles_between_handle_and_trash() {
+        let layout = rest_layout_with_minimized(2, 50.0, &[48.0, 72.0]);
+        assert_eq!(layout.tile_centers, vec![25.0, 78.0]);
+        assert_eq!(layout.minimized_centers, vec![143.0, 206.0]);
+        assert_eq!(layout.trash_center, 269.0);
+        assert_eq!(layout.width, 294.0);
     }
 
     #[test]

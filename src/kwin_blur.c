@@ -29,7 +29,10 @@ struct capability_state {
 };
 
 static void report_blur_unavailable(const char *reason) {
-    fprintf(stderr, "sonoma-desktop: KWin backdrop blur unavailable: %s\n", reason);
+    /* Every popover and window asks once; one line is enough. */
+    static int reported = 0;
+    if (reported++) return;
+    fprintf(stderr, "lunar-desktop: compositor backdrop blur protocol unavailable: %s\n", reason);
 }
 
 static void report_protocol_error(struct wl_display *display, const char *stage) {
@@ -38,10 +41,10 @@ static void report_protocol_error(struct wl_display *display, const char *stage)
     uint32_t code = wl_display_get_protocol_error(display, &interface, &object_id);
     if (code) {
         fprintf(stderr,
-                "sonoma-desktop: KWin backdrop blur protocol error at %s: %s object=%u code=%u\n",
+                "lunar-desktop: KWin backdrop blur protocol error at %s: %s object=%u code=%u\n",
                 stage, interface ? interface->name : "unknown", object_id, code);
     } else {
-        fprintf(stderr, "sonoma-desktop: KWin backdrop blur failed at %s\n", stage);
+        fprintf(stderr, "lunar-desktop: KWin backdrop blur failed at %s\n", stage);
     }
 }
 
@@ -141,6 +144,42 @@ static int set_blur_region(struct blur_handle *handle, GtkNative *native,
     }
 
     add_rounded_rect(region, x, y, region_width, region_height, corner_radius);
+    ext_background_effect_surface_v1_set_blur_region(handle->effect, region);
+    wl_region_destroy(region);
+    wl_surface_commit(handle->surface);
+    if (wl_display_flush(handle->display) < 0) return 0;
+    return 1;
+}
+
+/* Blurs the union of several rounded widget rectangles (and nothing else). */
+static int set_blur_regions(struct blur_handle *handle, GtkNative *native,
+                            GtkWidget **widgets, const int *radii, int count) {
+    GdkSurface *gdk_surface = gtk_native_get_surface(native);
+    int width = gdk_surface ? gdk_surface_get_width(gdk_surface) : 0;
+    int height = gdk_surface ? gdk_surface_get_height(gdk_surface) : 0;
+    if (!gdk_surface || width <= 0 || height <= 0) return 0;
+
+    struct wl_region *region = wl_compositor_create_region(handle->compositor);
+    if (!region) return 0;
+
+    for (int i = 0; i < count; i++) {
+        graphene_rect_t bounds;
+        if (!widgets[i] || !gtk_widget_get_mapped(widgets[i]) ||
+            !gtk_widget_compute_bounds(widgets[i], GTK_WIDGET(native), &bounds)) {
+            continue;
+        }
+        int x = (int) bounds.origin.x;
+        int y = (int) bounds.origin.y;
+        int w = (int) (bounds.size.width + 0.999f);
+        int h = (int) (bounds.size.height + 0.999f);
+        if (x < 0) { w += x; x = 0; }
+        if (y < 0) { h += y; y = 0; }
+        if (x + w > width) w = width - x;
+        if (y + h > height) h = height - y;
+        if (w <= 0 || h <= 0) continue;
+        add_rounded_rect(region, x, y, w, h, radii[i]);
+    }
+
     ext_background_effect_surface_v1_set_blur_region(handle->effect, region);
     wl_region_destroy(region);
     wl_surface_commit(handle->surface);
@@ -280,17 +319,17 @@ static void *enable_native_blur(GtkNative *native, GtkWidget *region_widget,
     destroy_discovery(queue, registry, manager, NULL, NULL);
     wl_display_flush(display);
 
-    fprintf(stderr, "sonoma-desktop: KWin backdrop blur attached to %s\n",
+    fprintf(stderr, "lunar-desktop: KWin backdrop blur attached to %s\n",
             surface_name);
     return handle;
 }
 
-void *sonoma_kde_blur_enable(GtkPopover *popover) {
+void *lunar_kde_blur_enable(GtkPopover *popover) {
     return popover ? enable_native_blur(GTK_NATIVE(popover), GTK_WIDGET(popover),
                                         12, "popover") : NULL;
 }
 
-void *sonoma_kde_blur_enable_popover_region(GtkPopover *popover,
+void *lunar_kde_blur_enable_popover_region(GtkPopover *popover,
                                             GtkWidget *region_widget,
                                             int corner_radius) {
     return popover ? enable_native_blur(GTK_NATIVE(popover),
@@ -298,7 +337,7 @@ void *sonoma_kde_blur_enable_popover_region(GtkPopover *popover,
                                         corner_radius, "popover") : NULL;
 }
 
-int sonoma_kde_blur_update_popover_region(void *opaque, GtkPopover *popover,
+int lunar_kde_blur_update_popover_region(void *opaque, GtkPopover *popover,
                                           GtkWidget *region_widget,
                                           int corner_radius) {
     struct blur_handle *handle = opaque;
@@ -308,7 +347,15 @@ int sonoma_kde_blur_update_popover_region(void *opaque, GtkPopover *popover,
                            corner_radius);
 }
 
-void *sonoma_kde_blur_enable_widget(GtkWindow *window, GtkWidget *region_widget,
+int lunar_kde_blur_update_popover_regions(void *opaque, GtkPopover *popover,
+                                           GtkWidget **widgets, const int *radii,
+                                           int count) {
+    struct blur_handle *handle = opaque;
+    if (!handle || !popover || !widgets || !radii || count <= 0) return 0;
+    return set_blur_regions(handle, GTK_NATIVE(popover), widgets, radii, count);
+}
+
+void *lunar_kde_blur_enable_widget(GtkWindow *window, GtkWidget *region_widget,
                                    int corner_radius) {
     return window && region_widget
         ? enable_native_blur(GTK_NATIVE(window), region_widget, corner_radius,
@@ -316,14 +363,14 @@ void *sonoma_kde_blur_enable_widget(GtkWindow *window, GtkWidget *region_widget,
         : NULL;
 }
 
-int sonoma_kde_blur_update_widget(void *opaque, GtkWindow *window,
+int lunar_kde_blur_update_widget(void *opaque, GtkWindow *window,
                                   GtkWidget *region_widget, int corner_radius) {
     struct blur_handle *handle = opaque;
     if (!handle || !window || !region_widget) return 0;
     return set_blur_region(handle, GTK_NATIVE(window), region_widget, corner_radius);
 }
 
-void sonoma_kde_blur_disable(void *opaque) {
+void lunar_kde_blur_disable(void *opaque) {
     struct blur_handle *handle = opaque;
     if (!handle) return;
     ext_background_effect_surface_v1_destroy(handle->effect);
