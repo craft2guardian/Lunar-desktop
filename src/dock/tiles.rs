@@ -45,8 +45,13 @@ impl HoverLabel {
         popover.add_css_class("lunar-menu-popover");
         popover.add_css_class("dock-label-popover");
         popover.set_child(Some(&label));
+        crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::bubble());
         popover.set_parent(parent);
-        crate::context_menu::attach_blur_region(&popover, label.upcast_ref::<gtk::Widget>(), 8);
+        crate::context_menu::attach_blur_region(
+            &popover,
+            label.upcast_ref::<gtk::Widget>(),
+            crate::liquid_glass::Material::bubble().blur_corner(),
+        );
 
         Self {
             popover,

@@ -186,14 +186,17 @@ impl Image {
     /// against the washed-out wallpaper is averaged, and the better one wins.
     /// Contrast per segment is capped so one extreme patch cannot decide it.
     pub fn bar_tone(&self, output: (f32, f32), bar_height: f32) -> BarTone {
-        use crate::glass::{DARK_TINT_ALPHA, LIGHT_TINT_ALPHA};
         const SEGMENTS: usize = 24;
         const CONTRAST_CAP: f32 = 10.0;
-        // Luminance of the two washes (white; the dark grey in glass.rs) and
+        // Luminance of the two washes (white; the dark grey in glass_config.rs) and
         // of the near-black text colour.
         const LIGHT_WASH: f32 = 1.0;
         const DARK_WASH: f32 = 0.06;
         const DARK_TEXT: f32 = 0.006;
+
+        // The same wash the bar paints (`glass_config::STRIP`, tuned).
+        let strip = crate::glass_config::strip();
+        let (light_tint_alpha, dark_tint_alpha) = (strip.light_tint[3], strip.dark_tint[3]);
 
         let fallback = BarTone::LightText;
         let Some(thumb) = self.thumb.get_or_init(|| Thumb::build(&self.texture)).as_ref() else {
@@ -218,9 +221,9 @@ impl Image {
             let b = u_start + (u_end - u_start) * (segment + 1) as f32 / SEGMENTS as f32;
             let y = thumb.mean(a, b, v_start, v_end);
 
-            let light_bg = y * (1.0 - LIGHT_TINT_ALPHA) + LIGHT_WASH * LIGHT_TINT_ALPHA;
+            let light_bg = y * (1.0 - light_tint_alpha) + LIGHT_WASH * light_tint_alpha;
             dark_text += ((light_bg + 0.05) / (DARK_TEXT + 0.05)).min(CONTRAST_CAP);
-            let dark_bg = y * (1.0 - DARK_TINT_ALPHA) + DARK_WASH * DARK_TINT_ALPHA;
+            let dark_bg = y * (1.0 - dark_tint_alpha) + DARK_WASH * dark_tint_alpha;
             light_text += (1.05 / (dark_bg + 0.05)).min(CONTRAST_CAP);
         }
         if dark_text > light_text {

@@ -63,7 +63,15 @@ struct Page {
 }
 
 /// To add a page: add an entry here and a matching arm in `build_page`.
-const PAGES: [Page; 3] = [
+const PAGES: [Page; 4] = [
+    Page {
+        name: "general",
+        title: "General",
+        icon: &[],
+        dark_icon: &[],
+        symbolic_icon: Some("preferences-system-symbolic"),
+        group: 0,
+    },
     Page {
         name: "desktop-dock",
         title: "Desktop & Dock",
@@ -283,6 +291,35 @@ fn switch_row(title: &str, subtitle: Option<&str>, active: bool) -> (gtk::Box, g
     let switch = gtk::Switch::new();
     switch.set_active(active);
     (settings_row(title, subtitle, &switch), switch)
+}
+
+/// A tappable row with a leading icon, title, and trailing chevron — used on
+/// the General page for About, Software Update, Storage, and similar links.
+fn navigation_row(title: &str, icon_name: &str) -> gtk::Box {
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+    row.add_css_class("settings-row");
+    row.add_css_class("settings-nav-row");
+
+    let icon = gtk::Image::from_icon_name(icon_name);
+    icon.set_pixel_size(22);
+    icon.set_valign(gtk::Align::Center);
+    icon.add_css_class("settings-nav-icon");
+
+    let label = gtk::Label::new(Some(title));
+    label.set_halign(gtk::Align::Start);
+    label.set_hexpand(true);
+    label.set_xalign(0.0);
+    label.add_css_class("settings-row-title");
+
+    let chevron = gtk::Image::from_icon_name("go-next-symbolic");
+    chevron.set_pixel_size(12);
+    chevron.set_valign(gtk::Align::Center);
+    chevron.add_css_class("settings-nav-chevron");
+
+    row.append(&icon);
+    row.append(&label);
+    row.append(&chevron);
+    row
 }
 
 /// A row with a title and a pair of labelled checkboxes.
@@ -528,12 +565,64 @@ fn build_wallpaper_page(body: &gtk::Box) {
     rebuild();
 }
 
+/// General page: hero header plus a list of related settings links.
+fn build_general_page(body: &gtk::Box, app: &gtk::Application) {
+    // ---- Hero: gear icon, title, description (matches macOS System Settings) ----
+    let hero = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    hero.add_css_class("settings-page-hero");
+    hero.set_halign(gtk::Align::Center);
+    hero.set_margin_top(12);
+    hero.set_margin_bottom(20);
+
+    let icon = gtk::Image::from_icon_name("preferences-system-symbolic");
+    icon.set_pixel_size(56);
+    icon.add_css_class("settings-page-hero-icon");
+    icon.set_halign(gtk::Align::Center);
+
+    let title = gtk::Label::new(Some("General"));
+    title.add_css_class("settings-page-hero-title");
+    title.set_halign(gtk::Align::Center);
+
+    let description = gtk::Label::new(Some(
+        "Manage your overall setup and preferences for Mac, such as software updates, device language, AirDrop, and more.",
+    ));
+    description.add_css_class("settings-page-hero-description");
+    description.set_halign(gtk::Align::Center);
+    description.set_justify(gtk::Justification::Center);
+    description.set_wrap(true);
+    description.set_max_width_chars(42);
+    description.set_xalign(0.5);
+
+    hero.append(&icon);
+    hero.append(&title);
+    hero.append(&description);
+    body.append(&hero);
+
+    // ---- Linked pages ----
+    let about = navigation_row("About", "dialog-information-symbolic");
+    let about_app = app.clone();
+    {
+        // Make the whole row clickable by wrapping gesture on the box.
+        let gesture = gtk::GestureClick::new();
+        gesture.connect_released(move |_, _, _, _| {
+            crate::about::present(&about_app);
+        });
+        about.add_controller(gesture);
+    }
+
+    let software_update = navigation_row("Software Update", "software-update-available-symbolic");
+    let storage = navigation_row("Storage", "drive-harddisk-symbolic");
+
+    body.append(&settings_group(&[about, software_update, storage]));
+}
+
 /// The scrolling body of one settings page.
 fn build_page(name: &str, app: &gtk::Application) -> gtk::ScrolledWindow {
     let body = gtk::Box::new(gtk::Orientation::Vertical, 8);
     body.add_css_class("settings-page");
 
     match name {
+        "general" => build_general_page(&body, app),
         "desktop-dock" => {
             let prefs = crate::preferences::current();
 

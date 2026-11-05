@@ -75,6 +75,30 @@ command = "firefox --new-window"         # program + arguments
   project folder of the built binary, `~/.config/lunar-desktop/dock.toml`, then the build
   folder. If none is usable, the bundled default is used.
 
+## Tuning the Liquid Glass
+
+All glass appearance is configured in `src/glass_config.rs`; no component hardcodes a
+colour, opacity, radius, shadow, highlight or timing.
+
+- **Global knobs** (`TUNING`): opacity, tint saturation, blur radius, frost, refraction,
+  highlight, reflection, border opacity/width, edge light, shadow intensity/softness/spread,
+  corner radius, depth, light angle, animation speed and easing. `1.0` means "as designed",
+  so list only what you change:
+
+  ```rust
+  pub const TUNING: Tuning = Tuning { opacity: 0.85, refraction: 1.4, ..NEUTRAL };
+  ```
+- **Per-material presets** (`presets::CLEAR`, `ACCENT`, `MENU`, `DOCK`, `BUBBLE`, `SIDEBAR`):
+  each has the same sections (body, blur, refraction, highlight, reflection, border, edge,
+  shadow, depth, motion). Add a material by adding a preset and a `Preset::name()` constructor.
+- **Shared behaviour**: `INTERACTION` (hover/press response), `DARK` (dark-mode adaptation),
+  `MENU_CHROME` (popover arrow, menu-item hover capsule, open-menu capsule), `STRIP` (menu bar).
+- **Kept in sync automatically**: the compositor blur regions take their corner radius from the
+  material, and the CSS that must agree with the glass (shadow room, radii, popover accents,
+  transitions) is generated from the config by `glass_config::css()`.
+
+`LUNAR_GLASS_PREVIEW=all cargo run` renders the surfaces off-compositor for judging changes.
+
 ## Requirements
 
 - **KDE Plasma on Wayland**, with KWin's `org_kde_plasma_shell` protocol available.
@@ -116,8 +140,9 @@ explanatory message.
   change it, replace `assets/wallpaper.jpg` (or edit and run
   `python3 scripts/generate_wallpaper.py`, which needs numpy and Pillow) and rebuild.
   The image is decoded once and shared by all outputs.
-- **Bar height** is fixed at 28 logical px (`HEIGHT` in `src/menubar.rs`); tint and
-  blur strength are constants in `src/glass.rs`.
+- **Bar height** is fixed at 28 logical px (`HEIGHT` in `src/menubar.rs`); the bar's
+  tint and hairline are `STRIP` in `src/glass_config.rs`. KWin's blur strength is a
+  global compositor setting that an app cannot change.
 - **Fractional scaling** is rendered at the next integer scale and downsampled by
   GTK, so the glass is slightly oversampled at e.g. 1.5x.
 - **Runtime status:** buildable, but visual behavior depends on the active KDE
@@ -141,7 +166,9 @@ src/dock.rs       dock window, icon fallbacks, launching
 src/config.rs     reads config/dock.toml
 config/           dock.toml (Dock entries)
 src/menubar.rs    menu bar window and KDE menu
-src/glass.rs      the bar's frosted-glass widget (blurred strip + tint + hairline)
+src/glass_config.rs  every Liquid Glass value: tuning knobs, material presets, motion
+src/liquid_glass.rs  the glass painter + GlassSurface widget (reads glass_config only)
+src/glass.rs      the bar's frosted-glass widget (tint + hairline, from glass_config)
 src/frost.rs      CPU crop + blur used by the glass
 src/style.rs      the few lines of CSS that remove default window chrome
 assets/           bundled wallpaper, dock-icons/ (your icons)
@@ -188,3 +215,40 @@ popups lived in plasmashell, so install one of them). Needs Plasma 6 (KWin and
 
 This session is new and has had little testing. If something does not start,
 the log says which helper was skipped.
+
+
+## Liquid Glass
+
+Surfaces use a shared material system in `src/liquid_glass.rs`. KWin still
+supplies the backdrop-dependent blur (`ext-background-effect-v1`); everything
+that makes the result read as glass is painted by `GlassSurface`:
+
+- a luminance-graded body fill (and an accent tint that crossfades when a
+  control's `.on` class is set),
+- an inner meniscus glow that stands in for edge refraction,
+- directional specular lines (key light upper left, weak bounce lower right),
+- a diagonal-gradient rim stroke, a sheen over the upper part, and two-stage
+  shadows,
+- pointer response on interactive surfaces: lift on hover, compression on
+  press, a glint that follows the cursor, and accent glass that thins to clear
+  glass on hover. These run on the frame clock, so they work although
+  `animation.rs` keeps GTK's own animations off.
+
+Each treatment is a `Material` preset: `clear()` (Control Centre tiles),
+`accent()` (sliders and shortcut buttons), `menu()` (menus and popovers),
+`dock()` (the shelf), `bubble()` (Dock labels) and `sidebar()`. Use
+`GlassSurface::wrap(&widget, Material::...)` to put any widget on glass, or
+`liquid_glass::glass_popover(&popover, Material::menu())` for a popover body.
+Layout and colours of the content stay in `style.rs`.
+
+### Previewing without KWin
+
+```sh
+GDK_BACKEND=x11 GSK_RENDERER=cairo LUNAR_GLASS_PREVIEW=all \
+LUNAR_GLASS_WALLPAPER=assets/glass-preview-wallpaper.jpg LUNAR_GLASS_OUT=out.png \
+  xvfb-run -a ./target/debug/lunar-desktop
+```
+
+Scenes: `cc`, `menu`, `dock`, `all`. Add `LUNAR_GLASS_DARK=1` for Dark Mode and
+`LUNAR_GLASS_HOVER=1` for the hover/glint state. The preview blurs the
+wallpaper itself where KWin would blur the backdrop (see `glass_preview.rs`).

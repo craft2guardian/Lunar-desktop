@@ -428,8 +428,13 @@ fn wifi_menu() -> gtk::MenuButton {
     );
 
     popover.set_child(Some(&menu));
+    crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
     // Blur just the menu body, and re-fit it when the dropdown opens or closes.
-    let refresh_blur = context_menu::attach_blur_region(&popover, menu.upcast_ref(), 12);
+    let refresh_blur = context_menu::attach_blur_region(
+        &popover,
+        menu.upcast_ref(),
+        crate::liquid_glass::Material::menu().blur_corner(),
+    );
     {
         let revealer = revealer.clone();
         let arrow = others_arrow.clone();
@@ -827,6 +832,7 @@ fn file_menu(
     });
     menu.append(&item);
     popover.set_child(Some(&menu));
+    crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("File"));
@@ -964,6 +970,7 @@ fn edit_menu() -> gtk::MenuButton {
         );
     }
     popover.set_child(Some(&menu));
+    crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("Edit"));
@@ -1072,6 +1079,7 @@ fn go_menu() -> gtk::MenuButton {
         );
     }
     popover.set_child(Some(&menu));
+    crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("Go"));
@@ -1184,6 +1192,7 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
     sub_item("Bottom Left", "bottom-left");
     sub_item("Bottom Right", "bottom-right");
     sub.set_child(Some(&sub_menu));
+    crate::liquid_glass::glass_popover(&sub, crate::liquid_glass::Material::menu());
     context_menu::attach_blur(&sub);
 
     {
@@ -1217,6 +1226,7 @@ fn window_menu(target: &WindowTarget) -> gtk::MenuButton {
     }
 
     popover.set_child(Some(&menu));
+    crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
     context_menu::attach_blur(&popover);
 
     let title = gtk::Label::new(Some("Window"));
@@ -1349,6 +1359,7 @@ fn help_menu(
         })),
     );
     popover.set_child(Some(&menu));
+    crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
     context_menu::attach_blur(&popover);
 
     {
@@ -1639,6 +1650,7 @@ pub fn window(
         popover.set_offset(6, 2);
         popover.add_css_class("lunar-menu-popover");
         popover.set_child(Some(&system_menu(&popover, app)));
+        crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
 
         context_menu::attach_blur(&popover);
 
@@ -1682,6 +1694,7 @@ pub fn window(
         quit_action.set_sensitive(false);
         active_menu_content.append(&quit_action);
         active_menu.set_child(Some(&active_menu_content));
+        crate::liquid_glass::glass_popover(&active_menu, crate::liquid_glass::Material::menu());
         context_menu::attach_blur(&active_menu);
 
         let quit_target = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));

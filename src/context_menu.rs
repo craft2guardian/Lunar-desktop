@@ -5,7 +5,6 @@ use std::{cell::RefCell, ffi::c_void, ptr, rc::Rc};
 use gtk::prelude::*;
 
 unsafe extern "C" {
-    fn lunar_kde_blur_enable(popover: *mut gtk::ffi::GtkPopover) -> *mut c_void;
     fn lunar_kde_blur_enable_popover_region(
         popover: *mut gtk::ffi::GtkPopover,
         region_widget: *mut gtk::ffi::GtkWidget,
@@ -59,8 +58,13 @@ impl ContextMenu {
             content.add_css_class(class);
         }
         popover.set_child(Some(&content));
+        crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
         // Blur only the menu body (not the arrow gap around it).
-        attach_blur_region(&popover, content.upcast_ref::<gtk::Widget>(), 12);
+        attach_blur_region(
+            &popover,
+            content.upcast_ref::<gtk::Widget>(),
+            crate::liquid_glass::Material::menu().blur_corner(),
+        );
 
         Self { popover, content }
     }
@@ -194,7 +198,12 @@ pub fn attach_blur(popover: &gtk::Popover) {
             };
             let needs_blur = on_map.borrow().is_null();
             if popover.is_mapped() && needs_blur {
-                let blur = unsafe { lunar_kde_blur_enable(popover.as_ptr()) };
+                // Same call as `lunar_kde_blur_enable`, but the corner radius is the
+                // menu material's instead of a number baked into the C side.
+                let radius = crate::liquid_glass::Material::menu().blur_corner();
+                let blur = unsafe {
+                    lunar_kde_blur_enable_popover_region(popover.as_ptr(), ptr::null_mut(), radius)
+                };
                 *on_map.borrow_mut() = blur;
             }
         });

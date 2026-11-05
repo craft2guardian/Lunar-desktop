@@ -181,6 +181,33 @@ button.settings-navigation-button:disabled {
 .settings-page {
     padding: 4px 20px 24px;
 }
+/* General (and similar) page hero: large icon, title, description. */
+.settings-page-hero {
+    padding: 8px 12px 4px;
+}
+.settings-page-hero-icon {
+    color: #6e6e73;
+    margin-bottom: 4px;
+}
+.settings-page-hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1d1d1f;
+}
+.settings-page-hero-description {
+    font-size: 13px;
+    line-height: 1.35;
+    color: rgba(60, 60, 67, 0.70);
+}
+.settings-nav-row {
+    min-height: 36px;
+}
+.settings-nav-icon {
+    color: #0a84ff;
+}
+.settings-nav-chevron {
+    color: rgba(60, 60, 67, 0.35);
+}
 .settings-section-heading {
     margin: 10px 4px 0;
     font-size: 13px;
@@ -621,6 +648,21 @@ image.settings-sidebar-icon.dark-mode {
 }
 .dark-mode .settings-section-heading {
     color: #f5f5f7;
+}
+.dark-mode .settings-page-hero-icon {
+    color: #aeaeb2;
+}
+.dark-mode .settings-page-hero-title {
+    color: #f5f5f7;
+}
+.dark-mode .settings-page-hero-description {
+    color: rgba(235, 235, 245, 0.62);
+}
+.dark-mode .settings-nav-icon {
+    color: #0a84ff;
+}
+.dark-mode .settings-nav-chevron {
+    color: rgba(235, 235, 245, 0.35);
 }
 .dark-mode .settings-slider-caption {
     color: rgba(235, 235, 245, 0.55);

@@ -47,8 +47,10 @@ window.lunar-settings-window {
 
 /* Sidebar: tinted over the blurred backdrop. */
 .settings-sidebar {
-    background-color: rgba(236, 238, 244, 0.82);
-    border-right: 1px solid rgba(0, 0, 0, 0.08);
+    background-color: rgba(236, 240, 248, 0.78);
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.06));
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    border-right: 1px solid rgba(0, 0, 0, 0.07);
 }
 .settings-sidebar-top {
     min-height: 52px;
@@ -79,9 +81,16 @@ window.lunar-settings-window {
 .settings-window-controls button:hover image {
     opacity: 0.55;
 }
+/* Traffic lights: small glass beads with a lit upper edge. */
 .settings-window-controls button.close { background-color: #ff5f57; }
 .settings-window-controls button.minimize { background-color: #febc2e; }
 .settings-window-controls button.maximize { background-color: #28c840; }
+.settings-window-controls button.close,
+.settings-window-controls button.minimize,
+.settings-window-controls button.maximize {
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0) 60%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0.5px 1.5px rgba(0, 0, 0, 0.18);
+}
 .settings-window-controls button:backdrop {
     background-color: rgba(0, 0, 0, 0.14);
 }
@@ -90,11 +99,11 @@ window.lunar-settings-window {
     min-height: 28px;
     margin: 0 16px 10px;
     padding: 0 8px;
-    border: 1px solid rgba(0, 0, 0, 0.10);
+    border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 14px;
     outline: none;
-    box-shadow: none;
-    background-color: rgba(0, 0, 0, 0.055);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.07), 0 1px 0 rgba(255, 255, 255, 0.55);
+    background-color: rgba(0, 0, 0, 0.05);
     color: #1d1d1f;
 }
 .settings-search:focus-within {
@@ -123,6 +132,10 @@ row.settings-sidebar-row:hover {
 row.settings-sidebar-row:selected,
 row.settings-sidebar-row:selected:hover {
     background-color: #0a84ff;
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40),
+                inset 0 0 0 0.5px rgba(190, 225, 255, 0.45),
+                0 1px 3px rgba(0, 70, 190, 0.30);
     color: #ffffff;
 }
 .settings-sidebar-icon {
@@ -180,6 +193,33 @@ button.settings-navigation-button:disabled {
 }
 .settings-page {
     padding: 4px 20px 24px;
+}
+/* General (and similar) page hero: large icon, title, description. */
+.settings-page-hero {
+    padding: 8px 12px 4px;
+}
+.settings-page-hero-icon {
+    color: #6e6e73;
+    margin-bottom: 4px;
+}
+.settings-page-hero-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1d1d1f;
+}
+.settings-page-hero-description {
+    font-size: 13px;
+    line-height: 1.35;
+    color: rgba(60, 60, 67, 0.70);
+}
+.settings-nav-row {
+    min-height: 36px;
+}
+.settings-nav-icon {
+    color: #0a84ff;
+}
+.settings-nav-chevron {
+    color: rgba(60, 60, 67, 0.35);
 }
 .settings-section-heading {
     margin: 10px 4px 0;
@@ -304,8 +344,8 @@ button.settings-popup {
     border: none;
     border-radius: 50%;
     background-color: #ffffff;
-    background-image: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+    background-image: linear-gradient(to bottom, #ffffff, #f1f3f7);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 .settings-row switch image,
 .wifi-menu switch image {
@@ -324,16 +364,20 @@ window.lunar-dock {
     border: none;
     box-shadow: none;
 }
+/* The shelf material (fill, rim, specular, shadow) is painted by
+   liquid_glass::GlassSurface. The margin that reserves room for its shadow and
+   the corner radius are generated from glass_config.rs (see glass_config::css). */
 .dock {
-    margin: 24px 24px 2px 24px;
+    margin: 0;
     padding: 6px 9px;
-    background-color: rgba(225, 230, 235, 0.44);
-    border: 1px solid rgba(255, 255, 255, 0.28);
-    border-radius: 20px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    background: none;
+    border: none;
+    box-shadow: none;
 }
 .dock-separator {
-    background-color: rgba(18, 29, 39, 0.78);
+    background-color: rgba(255, 255, 255, 0.42);
+    box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.10);
+    border-radius: 1px;
 }
 .dock-item {
     padding: 0;
@@ -363,7 +407,8 @@ window.lunar-dock {
 .dock-running-indicator {
     min-width: 4px;
     min-height: 4px;
-    background-color: rgba(18, 29, 39, 0.88);
+    background-color: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 0 3px rgba(255, 255, 255, 0.55), 0 0 0 0.5px rgba(0, 0, 0, 0.18);
     border-radius: 50%;
 }
 .dock-item-minimized .dock-running-indicator {
@@ -440,11 +485,8 @@ menubutton.lunar-menu-button > button:backdrop {
     background-image: none;
     box-shadow: none;
 }
-menubutton.lunar-menu-button.menu-open > button {
-    background-color: rgba(150, 150, 150, 0.22);
-    background-image: none;
-    border-radius: 13px;
-}
+/* The open-menu capsule (menubutton.lunar-menu-button.menu-open) is generated
+   from glass_config::MENU_CHROME. */
 .lunar-kde-logo-dark {
     opacity: 0;
 }
@@ -484,45 +526,48 @@ popover.lunar-menu-popover {
     outline: none;
     background: transparent;
     box-shadow: none;
-    border-radius: 12px;
 }
+/* Corner radius and the (invisible) shadow-room box-shadow of popovers are
+   generated from glass_config.rs. */
 popover.lunar-menu-popover > contents {
     padding: 0;
     border: none;
     outline: none;
     background: transparent;
-    box-shadow: none;
 }
 .lunar-system-menu {
     min-width: 220px;
-    padding: 5px 6px;
-    background-color: rgba(226, 231, 236, 0.64);
+    padding: 6px 6px;
+    background: none;
     border: none;
-    border-radius: 12px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.96);
+    text-shadow: 0 0.5px 1px rgba(0, 20, 60, 0.28);
 }
 button.lunar-menu-item {
     min-height: 25px;
-    padding: 1px 8px;
+    padding: 1px 9px;
     border: none;
-    border-radius: 6px;
+    border-radius: 7px;
     background: transparent;
-    color: #171717;
+    background-image: none;
+    color: rgba(255, 255, 255, 0.96);
     box-shadow: none;
-    transition: background-color 120ms ease-out, color 120ms ease-out;
 }
+/* Hover: a small accent-glass capsule with its own lit rim (background, rim
+   and the fade transition come from glass_config::MENU_CHROME). */
 button.lunar-menu-item:hover,
 button.lunar-menu-item:active {
-    background-color: rgba(0, 122, 255, 0.94);
-    color: white;
+    color: #ffffff;
+    text-shadow: none;
 }
 button.lunar-menu-item:disabled {
-    color: rgba(23, 23, 23, 0.48);
+    color: rgba(255, 255, 255, 0.36);
 }
 .lunar-menu-separator {
     min-height: 1px;
-    margin: 3px 6px;
-    background-color: rgba(0, 0, 0, 0.16);
+    margin: 4px 6px;
+    background-color: rgba(255, 255, 255, 0.20);
 }
 .lunar-system-menu.dock-context-menu {
     min-width: 180px;
@@ -539,24 +584,13 @@ popover.lunar-menu-popover.dock-label-popover > arrow {
     min-height: 14px;
     border: none;
     box-shadow: none;
-    background-color: rgba(226, 231, 236, 0.64);
-}
-.dark-mode popover.lunar-menu-popover.dock-context-popover > arrow,
-popover.lunar-menu-popover.dock-context-popover.dark-mode > arrow,
-.dark-mode popover.lunar-menu-popover.dock-label-popover > arrow,
-popover.lunar-menu-popover.dock-label-popover.dark-mode > arrow {
-    background-color: rgba(67, 71, 78, 0.88);
 }
 /* App-name bubble shown above a Dock icon on hover. */
 .lunar-system-menu.dock-label {
     min-width: 0;
     padding: 4px 11px;
-    border-radius: 8px;
     font-size: 13px;
-    color: #171717;
-}
-.dark-mode .lunar-system-menu.dock-label {
-    color: #f5f5f7;
+    color: #ffffff;
 }
 .lunar-system-menu.active-app-menu {
     min-width: 200px;
@@ -622,6 +656,21 @@ image.settings-sidebar-icon.dark-mode {
 .dark-mode .settings-section-heading {
     color: #f5f5f7;
 }
+.dark-mode .settings-page-hero-icon {
+    color: #aeaeb2;
+}
+.dark-mode .settings-page-hero-title {
+    color: #f5f5f7;
+}
+.dark-mode .settings-page-hero-description {
+    color: rgba(235, 235, 245, 0.62);
+}
+.dark-mode .settings-nav-icon {
+    color: #0a84ff;
+}
+.dark-mode .settings-nav-chevron {
+    color: rgba(235, 235, 245, 0.35);
+}
 .dark-mode .settings-slider-caption {
     color: rgba(235, 235, 245, 0.55);
 }
@@ -676,30 +725,8 @@ image.settings-sidebar-icon.dark-mode {
     background-color: #0a84ff;
     color: #ffffff;
 }
-.dark-mode .dock {
-    background-color: rgba(61, 65, 72, 0.72);
-    border-color: rgba(255, 255, 255, 0.24);
-}
-.lunar-dock.dark-mode .dock {
-    background-color: rgba(61, 65, 72, 0.72);
-}
 .dock-separator.dark-mode {
-    background-color: rgba(38, 40, 45, 0.86);
-}
-.dark-mode .dock-running-indicator {
-    background-color: rgba(245, 245, 247, 0.94);
-}
-.dark-mode .lunar-system-menu {
-    background-color: rgba(67, 71, 78, 0.88);
-}
-.dark-mode button.lunar-menu-item {
-    color: #f5f5f7;
-}
-.dark-mode button.lunar-menu-item:disabled {
-    color: rgba(235, 235, 245, 0.42);
-}
-.dark-mode .lunar-menu-separator {
-    background-color: rgba(255, 255, 255, 0.18);
+    background-color: rgba(255, 255, 255, 0.30);
 }
 /* ---- Wallpaper picker (settings.rs) and desktop context menu ------------ */
 .lunar-system-menu.desktop-context-menu {
@@ -751,7 +778,7 @@ button.wallpaper-add {
 .wifi-menu .wifi-title {
     font-size: 12px;
     font-weight: 700;
-    color: #171717;
+    color: #ffffff;
 }
 .wifi-menu .lunar-menu-separator {
     margin: 3px 3px;
@@ -760,12 +787,12 @@ button.wallpaper-add {
     margin: 3px 6px 3px 6px;
     font-size: 12px;
     font-weight: 700;
-    color: rgba(60, 60, 67, 0.62);
+    color: rgba(255, 255, 255, 0.62);
 }
 .wifi-menu .wifi-status {
     margin: 0 6px;
     font-size: 12px;
-    color: rgba(60, 60, 67, 0.62);
+    color: rgba(255, 255, 255, 0.62);
 }
 .wifi-menu button.lunar-menu-item {
     min-height: 24px;
@@ -781,8 +808,10 @@ button.wallpaper-add {
 }
 .wifi-menu button.wifi-current-item:hover,
 .wifi-menu button.wifi-current-item:active {
-    background-color: rgba(0, 0, 0, 0.07);
-    color: #171717;
+    background-image: none;
+    background-color: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.22);
+    color: #ffffff;
 }
 .wifi-badge {
     min-width: 28px;
@@ -794,25 +823,25 @@ button.wallpaper-add {
     color: #ffffff;
 }
 .wifi-lock {
-    color: rgba(23, 23, 23, 0.62);
+    color: rgba(255, 255, 255, 0.62);
 }
 .wifi-menu button.lunar-menu-item:hover .wifi-lock {
     color: #ffffff;
 }
 .wifi-menu button.wifi-current-item:hover .wifi-lock {
-    color: rgba(23, 23, 23, 0.62);
+    color: rgba(255, 255, 255, 0.62);
 }
 /* Other Networks row: bold, muted heading style like Preferred Network. */
 .wifi-menu button.wifi-heading-item {
     font-weight: 700;
-    color: rgba(60, 60, 67, 0.62);
+    color: rgba(255, 255, 255, 0.62);
 }
 .wifi-menu button.wifi-heading-item:hover,
 .wifi-menu button.wifi-heading-item:active {
     color: #ffffff;
 }
 .wifi-menu button.wifi-heading-item:disabled {
-    color: rgba(60, 60, 67, 0.32);
+    color: rgba(255, 255, 255, 0.32);
 }
 .wifi-chevron {
     font-size: 14px;
@@ -988,8 +1017,14 @@ menubutton.lunar-menubar-item-button > button:checked {
     background-image: none;
     box-shadow: none;
 }
-menubutton.lunar-active-app-button.lunar-menubar-item-button > button:checked {
-    background-color: rgba(150, 150, 150, 0.30);
+/* An open bar menu: a clear glass capsule behind the title. */
+menubutton.lunar-menubar-item-button > button:checked {
+    background-color: rgba(255, 255, 255, 0.20);
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03));
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.50),
+                inset 0 1px 0 rgba(255, 255, 255, 0.40),
+                0 1px 4px rgba(0, 30, 90, 0.16);
+    border-radius: 11px;
 }
 
 
@@ -1029,145 +1064,181 @@ menubutton.lunar-active-app-button.lunar-menubar-item-button > button:checked {
     font-size: 13px;
     font-weight: 500;
 }
-/* ---- Control Centre (see control_center.rs) ------------------------------ */
-/* No panel background: only the compositor blur shows through, and each
-   control is a clear glass tile with a light rim. */
+/* ---- Control Centre (see control_center.rs) ------------------------------
+   No panel background. Every control sits on its own Liquid Glass surface
+   (liquid_glass::GlassSurface paints fill, meniscus, specular lines, rim and
+   shadow, and animates hover/press); this CSS only lays out the content. */
 .lunar-system-menu.cc-panel,
 .dark-mode .lunar-system-menu.cc-panel {
     min-width: 0;
     padding: 12px;
     border-radius: 26px;
-    background-color: transparent;
-    background-image: none;
+    background: none;
     box-shadow: none;
+    text-shadow: none;
 }
 .cc-panel .cc-tile,
 .cc-panel button.cc-button,
 .cc-panel button.cc-edit {
-    background-color: rgba(255, 255, 255, 0.10);
-    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02));
-    border: 1px solid rgba(255, 255, 255, 0.50);
+    background: none;
+    background-image: none;
+    border: none;
     border-radius: 22px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 1px 4px rgba(0, 0, 0, 0.12);
+    box-shadow: none;
     outline: none;
     color: #ffffff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     padding: 0;
     min-height: 0;
     min-width: 0;
 }
 .cc-panel button.cc-button:hover,
-.cc-panel button.cc-edit:hover {
-    background-color: rgba(255, 255, 255, 0.20);
+.cc-panel button.cc-button:active,
+.cc-panel button.cc-edit:hover,
+.cc-panel button.cc-edit:active {
+    background: none;
+    background-image: none;
+    box-shadow: none;
 }
 .cc-panel button.cc-button:disabled {
     opacity: 0.5;
 }
-.cc-panel button.cc-circle {
-    border-radius: 32px;
-}
+.cc-panel button.cc-circle,
 .cc-panel button.cc-square {
-    border-radius: 20px;
-}
-.cc-panel button.cc-button.on.cc-circle,
-.cc-panel button.cc-button.on.cc-square {
-    background-color: rgba(10, 132, 255, 0.85);
-    border-color: rgba(255, 255, 255, 0.60);
+    border-radius: 29px;
 }
 .cc-panel .cc-disc {
     border-radius: 17px;
-    background-color: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.42);
+    background-color: rgba(255, 255, 255, 0.24);
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0.04));
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.40);
 }
 .cc-panel button.cc-pill {
-    padding: 0 12px 0 10px;
+    padding: 0 12px 0 12px;
 }
 .cc-panel button.cc-pill.on .cc-disc {
-    background-color: rgba(10, 132, 255, 0.90);
+    background-color: #ffffff;
+    background-image: none;
+}
+.cc-panel button.cc-pill.on .cc-disc .cc-icon {
+    color: #0a67ff;
 }
 .cc-panel .cc-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     color: #ffffff;
+    text-shadow: 0 0.5px 1.5px rgba(0, 30, 90, 0.30);
 }
 .cc-panel .cc-subtitle {
-    font-size: 11px;
-    font-weight: 400;
+    font-size: 12px;
+    font-weight: 500;
     color: #ffffff;
-    opacity: 0.75;
+    opacity: 0.78;
 }
 .cc-panel .cc-art {
-    border-radius: 9px;
-    background-color: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.40);
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.26);
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02));
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.30);
 }
 .cc-panel .cc-art picture {
-    border-radius: 9px;
+    border-radius: 12px;
 }
 .cc-panel button.cc-transport {
-    min-width: 28px;
-    min-height: 28px;
+    min-width: 30px;
+    min-height: 30px;
     padding: 0;
     border: none;
-    border-radius: 14px;
+    border-radius: 15px;
     background: transparent;
     background-image: none;
     box-shadow: none;
-    color: #ffffff;
+    color: #9be9ff;
 }
 .cc-panel button.cc-transport:hover {
-    background-color: rgba(255, 255, 255, 0.22);
+    background-color: rgba(255, 255, 255, 0.20);
+}
+.cc-panel button.cc-transport:active {
+    background-color: rgba(255, 255, 255, 0.30);
+}
+.cc-panel button.cc-transport image {
+    color: #9be9ff;
 }
 .cc-panel button.cc-mini-circle {
-    min-width: 24px;
-    min-height: 24px;
+    min-width: 26px;
+    min-height: 26px;
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.50);
-    border-radius: 12px;
-    background-color: rgba(255, 255, 255, 0.14);
-    background-image: none;
-    box-shadow: none;
+    border: none;
+    border-radius: 13px;
+    background-color: rgba(255, 255, 255, 0.22);
+    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02));
+    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.32);
     color: #ffffff;
 }
+.cc-panel button.cc-mini-circle:hover {
+    background-color: rgba(255, 255, 255, 0.32);
+}
 .cc-panel button.cc-mini-circle.on {
-    background-color: rgba(10, 132, 255, 0.90);
+    background-color: rgba(255, 255, 255, 0.92);
+    color: #0a67ff;
 }
 .cc-panel .cc-icon {
     color: #ffffff;
 }
-.cc-panel scale.cc-slider trough {
+/* Sliders: a recessed translucent track, a bright fill, a white capsule knob. */
+.cc-panel scale.cc-slider {
     min-height: 22px;
-    border-radius: 11px;
-    border: 1px solid rgba(255, 255, 255, 0.40);
-    background-color: rgba(255, 255, 255, 0.10);
+}
+.cc-panel scale.cc-slider trough {
+    min-height: 7px;
+    border: none;
+    border-radius: 4px;
+    background-color: rgba(0, 24, 150, 0.34);
+    box-shadow: inset 0 1px 2px rgba(0, 10, 90, 0.45), 0 0.5px 0 rgba(255, 255, 255, 0.16);
 }
 .cc-panel scale.cc-slider highlight {
-    border-radius: 11px;
-    border: none;
-    background-color: rgba(255, 255, 255, 0.85);
-    background-image: none;
-}
-.cc-panel scale.cc-slider slider {
-    min-width: 22px;
-    min-height: 22px;
+    min-width: 0;
+    min-height: 0;
     margin: 0;
     border: none;
-    border-radius: 11px;
-    background-color: #ffffff;
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.96);
     background-image: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.30);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.28);
+}
+.cc-panel scale.cc-slider slider {
+    min-width: 32px;
+    min-height: 20px;
+    margin: -7px 0;
+    border: none;
+    border-radius: 10px;
+    background-color: #ffffff;
+    background-image: linear-gradient(to bottom, #ffffff, #eaf1fb);
+    box-shadow: 0 2px 6px rgba(0, 20, 110, 0.38),
+                0 0 0 0.5px rgba(0, 30, 120, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+.cc-panel scale.cc-slider:hover slider {
+    box-shadow: 0 3px 9px rgba(0, 20, 110, 0.44),
+                0 0 0 0.5px rgba(0, 30, 120, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+.cc-panel scale.cc-slider:disabled {
+    opacity: 0.55;
 }
 .cc-panel button.cc-edit {
-    padding: 4px 14px;
-    border-radius: 14px;
+    padding: 3px 13px;
+    border-radius: 12px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
+    color: #c9ebff;
 }
 ";
 
 pub fn install(display: &gdk::Display) -> gtk::CssProvider {
     let provider = gtk::CssProvider::new();
-    provider.load_from_string(CSS);
+    // The glass-coupled rules (shadow room, radii, popover accents, transitions)
+    // come last so they sit on top of the static sheet.
+    provider.load_from_string(&format!("{CSS}{}", crate::glass_config::css()));
     gtk::style_context_add_provider_for_display(
         display,
         &provider,

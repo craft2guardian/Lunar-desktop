@@ -200,7 +200,10 @@ pub fn window(
     // The overlay is measured with the growing content, so the window grows
     // around the icons while the shelf remains visually fixed.
     let stage = gtk::Overlay::new();
-    stage.set_child(Some(&dock));
+    // The shelf is Liquid Glass; its CSS margins live on the glass surface.
+    let dock_glass = crate::liquid_glass::GlassSurface::wrap(&dock, crate::liquid_glass::Material::dock());
+    dock_glass.add_css_class("dock-glass");
+    stage.set_child(Some(&dock_glass));
     stage.add_overlay(&dock_content);
     stage.set_measure_overlay(&dock_content, true);
 
@@ -292,7 +295,11 @@ pub fn window(
         .child(&root)
         .build();
     crate::preferences::apply_dark_mode(&window);
-    let dock_blur = crate::context_menu::attach_window_widget_blur(&window, &dock, 20);
+    let dock_blur = crate::context_menu::attach_window_widget_blur(
+        &window,
+        &dock,
+        crate::liquid_glass::Material::dock().blur_corner(),
+    );
     // The dock's size changes while icons fade/slide; keep KWin's blur region
     // following it for the length of the animation.
     let animate_blur: Rc<dyn Fn(u64)> = {

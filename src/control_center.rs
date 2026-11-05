@@ -15,10 +15,11 @@ use std::time::Duration;
 use gtk::{gdk, glib, prelude::*};
 
 use crate::context_menu;
+use crate::liquid_glass::{GlassSurface, Material};
 
 /// Width of one grid cell, and the gap between cells, in pixels.
-const CELL: i32 = 64;
-const GAP: i32 = 10;
+const CELL: i32 = 58;
+const GAP: i32 = 12;
 
 // ---------------------------------------------------------------- commands
 
@@ -190,6 +191,11 @@ fn icon(names: &[&str], size: i32) -> gtk::Image {
     image.set_pixel_size(size);
     image.add_css_class("cc-icon");
     image
+}
+
+/// Puts a control on a glass surface of the given material.
+fn glass(child: &impl IsA<gtk::Widget>, material: Material) -> GlassSurface {
+    GlassSurface::wrap(child, material)
 }
 
 fn set_on(widget: &impl IsA<gtk::Widget>, on: bool) {
@@ -384,15 +390,15 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
         "Wi-Fi",
         Some("Off"),
     );
-    grid.attach(&wifi, 0, 0, 2, 1);
+    grid.attach(&glass(&wifi, Material::clear_capsule()), 0, 0, 2, 1);
 
     let bluetooth = round_button(&["bluetooth-symbolic", "bluetooth-active-symbolic"], "cc-circle");
-    grid.attach(&bluetooth, 0, 1, 1, 1);
+    grid.attach(&glass(&bluetooth, Material::clear_capsule()), 0, 1, 1, 1);
     let airplane = round_button(
         &["airplane-mode-symbolic", "network-wireless-disabled-symbolic"],
         "cc-circle",
     );
-    grid.attach(&airplane, 1, 1, 1, 1);
+    grid.attach(&glass(&airplane, Material::clear_capsule()), 1, 1, 1, 1);
 
     // ---- Media -------------------------------------------------------------
     let media = gtk::Box::new(gtk::Orientation::Vertical, 4);
@@ -400,11 +406,12 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
     media.set_size_request(CELL * 2 + GAP, CELL * 2 + GAP);
     let art_overlay = gtk::Overlay::new();
     art_overlay.add_css_class("cc-art");
-    art_overlay.set_size_request(40, 40);
+    art_overlay.set_size_request(46, 46);
     art_overlay.set_halign(gtk::Align::Start);
     art_overlay.set_margin_start(12);
     art_overlay.set_margin_top(12);
     let art_fallback = icon(&["audio-x-generic-symbolic", "multimedia-player-symbolic"], 20);
+    art_fallback.set_opacity(0.0);
     art_fallback.set_halign(gtk::Align::Center);
     art_fallback.set_valign(gtk::Align::Center);
     art_overlay.set_child(Some(&art_fallback));
@@ -414,9 +421,11 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
     art_overlay.add_overlay(&art);
     media.append(&art_overlay);
 
-    let track_title = gtk::Label::new(Some("Not Playing"));
+    let track_title = gtk::Label::new(Some("Now Playing"));
     track_title.add_css_class("cc-title");
     track_title.set_xalign(0.0);
+    track_title.set_vexpand(true);
+    track_title.set_valign(gtk::Align::End);
     track_title.set_margin_start(12);
     track_title.set_margin_end(10);
     track_title.set_ellipsize(gtk::pango::EllipsizeMode::End);
@@ -434,7 +443,6 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
     let transport = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     transport.set_halign(gtk::Align::Center);
     transport.set_valign(gtk::Align::End);
-    transport.set_vexpand(true);
     transport.set_margin_bottom(8);
     let previous = gtk::Button::new();
     previous.set_child(Some(&icon(&["media-skip-backward-symbolic"], 16)));
@@ -450,7 +458,7 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
     transport.append(&play);
     transport.append(&next);
     media.append(&transport);
-    grid.attach(&media, 2, 0, 2, 2);
+    grid.attach(&glass(&media, Material::clear_card()), 2, 0, 2, 2);
 
     // ---- Do Not Disturb and window shortcuts ---------------------------------
     let (focus, focus_sub) = pill_button(
@@ -458,19 +466,19 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
         "Focus",
         None,
     );
-    grid.attach(&focus, 0, 2, 2, 1);
+    grid.attach(&glass(&focus, Material::clear_capsule()), 0, 2, 2, 1);
     let overview = round_button(
         &["view-app-grid-symbolic", "view-grid-symbolic", "window-duplicate-symbolic"],
         "cc-square",
     );
     overview.set_tooltip_text(Some("Overview"));
-    grid.attach(&overview, 2, 2, 1, 1);
+    grid.attach(&glass(&overview, Material::clear_capsule()), 2, 2, 1, 1);
     let desktop = round_button(
         &["user-desktop-symbolic", "window-restore-symbolic"],
         "cc-square",
     );
     desktop.set_tooltip_text(Some("Show Desktop"));
-    grid.attach(&desktop, 3, 2, 1, 1);
+    grid.attach(&glass(&desktop, Material::clear_capsule()), 3, 2, 1, 1);
 
     // ---- Display and Sound sliders --------------------------------------------
     let (display_tile, display_scale) = slider_tile(
@@ -478,7 +486,7 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
         &["display-brightness-low-symbolic", "weather-clear-symbolic"],
         icon(&["display-brightness-symbolic", "weather-clear-symbolic"], 16).upcast(),
     );
-    grid.attach(&display_tile, 0, 3, 4, 1);
+    grid.attach(&glass(&display_tile, Material::accent_card()), 0, 3, 4, 1);
 
     let mute = gtk::Button::new();
     mute.set_child(Some(&icon(
@@ -486,12 +494,13 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
         14,
     )));
     mute.add_css_class("cc-mini-circle");
+    mute.set_valign(gtk::Align::Center);
     let (sound_tile, sound_scale) = slider_tile(
         "Sound",
         &["audio-volume-low-symbolic", "audio-volume-medium-symbolic"],
         mute.clone().upcast(),
     );
-    grid.attach(&sound_tile, 0, 4, 4, 1);
+    grid.attach(&glass(&sound_tile, Material::accent_card()), 0, 4, 4, 1);
 
     // ---- Bottom row of shortcuts ------------------------------------------------
     let appearance = round_button(
@@ -499,50 +508,54 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
         "cc-circle",
     );
     appearance.set_tooltip_text(Some("Dark Mode"));
-    grid.attach(&appearance, 0, 5, 1, 1);
+    grid.attach(&glass(&appearance, Material::accent_capsule()), 0, 5, 1, 1);
     let calculator = round_button(
         &["accessories-calculator-symbolic", "kcalc-symbolic"],
         "cc-circle",
     );
     calculator.set_tooltip_text(Some("Calculator"));
-    grid.attach(&calculator, 1, 5, 1, 1);
+    grid.attach(&glass(&calculator, Material::accent_capsule()), 1, 5, 1, 1);
     let timer = round_button(
         &["alarm-symbolic", "preferences-system-time-symbolic", "appointment-soon-symbolic"],
         "cc-circle",
     );
     timer.set_tooltip_text(Some("Clock"));
-    grid.attach(&timer, 2, 5, 1, 1);
+    grid.attach(&glass(&timer, Material::accent_capsule()), 2, 5, 1, 1);
     let capture = round_button(
         &["applets-screenshooter-symbolic", "camera-photo-symbolic"],
         "cc-circle",
     );
     capture.set_tooltip_text(Some("Screenshot"));
-    grid.attach(&capture, 3, 5, 1, 1);
+    grid.attach(&glass(&capture, Material::accent_capsule()), 3, 5, 1, 1);
 
     let edit = gtk::Button::with_label("Edit Controls");
     edit.add_css_class("cc-edit");
     edit.set_halign(gtk::Align::Center);
     edit.set_margin_top(8);
-    panel.append(&edit);
+    panel.append(&glass(&edit, Material::accent_capsule()));
 
     popover.set_child(Some(&panel));
     // The same compositor blur the other menus use, shaped to the panel.
     // Only the tiles are blurred, not the panel behind and between them.
+    // Each region takes its corner radius from the material painted on it, so
+    // the compositor blur always matches the glass shape.
+    let (clear_capsule, clear_card) = (Material::clear_capsule(), Material::clear_card());
+    let (accent_capsule, accent_card) = (Material::accent_capsule(), Material::accent_card());
     let blur_regions: Vec<(gtk::Widget, i32)> = vec![
-        (wifi.clone().upcast(), 22),
-        (media.clone().upcast(), 22),
-        (bluetooth.clone().upcast(), 32),
-        (airplane.clone().upcast(), 32),
-        (focus.clone().upcast(), 22),
-        (overview.clone().upcast(), 20),
-        (desktop.clone().upcast(), 20),
-        (display_tile.clone().upcast(), 22),
-        (sound_tile.clone().upcast(), 22),
-        (appearance.clone().upcast(), 32),
-        (calculator.clone().upcast(), 32),
-        (timer.clone().upcast(), 32),
-        (capture.clone().upcast(), 32),
-        (edit.clone().upcast(), 14),
+        (wifi.clone().upcast(), clear_capsule.blur_corner()),
+        (media.clone().upcast(), clear_card.blur_corner()),
+        (bluetooth.clone().upcast(), clear_capsule.blur_corner()),
+        (airplane.clone().upcast(), clear_capsule.blur_corner()),
+        (focus.clone().upcast(), clear_capsule.blur_corner()),
+        (overview.clone().upcast(), clear_capsule.blur_corner()),
+        (desktop.clone().upcast(), clear_capsule.blur_corner()),
+        (display_tile.clone().upcast(), accent_card.blur_corner()),
+        (sound_tile.clone().upcast(), accent_card.blur_corner()),
+        (appearance.clone().upcast(), accent_capsule.blur_corner()),
+        (calculator.clone().upcast(), accent_capsule.blur_corner()),
+        (timer.clone().upcast(), accent_capsule.blur_corner()),
+        (capture.clone().upcast(), accent_capsule.blur_corner()),
+        (edit.clone().upcast(), accent_capsule.blur_corner()),
     ];
     let _refresh_blur = context_menu::attach_blur_regions(&popover, blur_regions);
 
@@ -567,6 +580,7 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
         let track_artist = track_artist.clone();
         let play_icon = play_icon.clone();
         let art = art.clone();
+        let art_fallback = art_fallback.clone();
         let updating = Rc::clone(&updating);
         Rc::new(move || {
             let wifi = wifi.clone();
@@ -584,6 +598,7 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
             let track_artist = track_artist.clone();
             let play_icon = play_icon.clone();
             let art = art.clone();
+            let art_fallback = art_fallback.clone();
             let updating = Rc::clone(&updating);
             glib::spawn_future_local(async move {
                 let Ok(state) = gtk::gio::spawn_blocking(read_state).await else {
@@ -626,6 +641,8 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
                     "media-playback-start-symbolic"
                 }));
                 media_box.set_sensitive(state.media.is_some());
+                // An empty artwork slot while idle; a note glyph while something plays.
+                art_fallback.set_opacity(if state.media.is_some() { 1.0 } else { 0.0 });
                 match &state.media {
                     Some(media) => {
                         track_title.set_text(&media.title);
@@ -639,7 +656,7 @@ pub fn control_center_button(app: &gtk::Application) -> gtk::MenuButton {
                         art.set_visible(texture.is_some());
                     }
                     None => {
-                        track_title.set_text("Not Playing");
+                        track_title.set_text("Now Playing");
                         track_artist.set_text("");
                         art.set_paintable(None::<&gdk::Paintable>);
                         art.set_visible(false);

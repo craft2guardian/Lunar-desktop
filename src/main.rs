@@ -8,8 +8,11 @@ mod control_center;
 mod desktop;
 mod dock;
 mod glass;
+mod glass_config;
+mod glass_preview;
 mod kde_shell;
 mod kwin_windows;
+mod liquid_glass;
 mod magnify;
 mod menubar;
 mod preferences;
@@ -69,6 +72,11 @@ fn main() -> glib::ExitCode {
 
 fn activate(app: &gtk::Application) {
     crate::animation::disable_by_default();
+    // Developer preview of the Liquid Glass surfaces (see glass_preview.rs).
+    if let Ok(scene) = std::env::var("LUNAR_GLASS_PREVIEW") {
+        glass_preview::run(app, &scene);
+        return;
+    }
     if !kde_shell::is_supported() {
         fail(
             "this session cannot host the desktop shell: run it under KWin on Wayland, \
