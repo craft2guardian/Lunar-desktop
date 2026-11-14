@@ -63,30 +63,62 @@ struct Page {
 }
 
 /// To add a page: add an entry here and a matching arm in `build_page`.
-const PAGES: [Page; 4] = [
+const PAGES: [Page; 8] = [
+    Page {
+        name: "wifi",
+        title: "Wi-Fi",
+        icon: include_bytes!("../assets/settings-icons/wifi.png"),
+        dark_icon: include_bytes!("../assets/settings-icons/wifi.png"),
+        symbolic_icon: None,
+        group: 0,
+    },
+    Page {
+        name: "bluetooth",
+        title: "Bluetooth",
+        icon: include_bytes!("../assets/settings-icons/bluetooth.png"),
+        dark_icon: include_bytes!("../assets/settings-icons/bluetooth.png"),
+        symbolic_icon: None,
+        group: 0,
+    },
     Page {
         name: "general",
         title: "General",
+        icon: include_bytes!("../assets/settings-icons/general.png"),
+        dark_icon: include_bytes!("../assets/settings-icons/general.png"),
+        symbolic_icon: None,
+        group: 1,
+    },
+    Page {
+        name: "appearance",
+        title: "Appearance",
         icon: &[],
         dark_icon: &[],
-        symbolic_icon: Some("preferences-system-symbolic"),
-        group: 0,
+        symbolic_icon: Some("preferences-desktop-theme-symbolic"),
+        group: 1,
     },
     Page {
         name: "desktop-dock",
         title: "Desktop & Dock",
         icon: include_bytes!("../assets/settings-icons/desktop-dock.png"),
-        dark_icon: include_bytes!("../assets/settings-icons/desktop-dock-dark.png"),
+        dark_icon: include_bytes!("../assets/settings-icons/desktop-dock.png"),
         symbolic_icon: None,
-        group: 0,
+        group: 1,
+    },
+    Page {
+        name: "displays",
+        title: "Displays",
+        icon: include_bytes!("../assets/settings-icons/displays.png"),
+        dark_icon: include_bytes!("../assets/settings-icons/displays.png"),
+        symbolic_icon: None,
+        group: 1,
     },
     Page {
         name: "menu-bar",
         title: "Menu Bar",
         icon: include_bytes!("../assets/settings-icons/menu-bar.png"),
-        dark_icon: include_bytes!("../assets/settings-icons/menu-bar-dark.png"),
+        dark_icon: include_bytes!("../assets/settings-icons/menu-bar.png"),
         symbolic_icon: None,
-        group: 0,
+        group: 1,
     },
     Page {
         name: "wallpaper",
@@ -94,7 +126,7 @@ const PAGES: [Page; 4] = [
         icon: &[],
         dark_icon: &[],
         symbolic_icon: Some("preferences-desktop-wallpaper-symbolic"),
-        group: 1,
+        group: 2,
     },
 ];
 
@@ -193,7 +225,7 @@ fn account_block() -> gtk::Box {
 
 /// One line inside a group: title (and optional subtitle) on the left, the
 /// control on the right.
-fn settings_row(title: &str, subtitle: Option<&str>, control: &impl IsA<gtk::Widget>) -> gtk::Box {
+pub(crate) fn settings_row(title: &str, subtitle: Option<&str>, control: &impl IsA<gtk::Widget>) -> gtk::Box {
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
     row.add_css_class("settings-row");
 
@@ -222,7 +254,7 @@ fn settings_row(title: &str, subtitle: Option<&str>, control: &impl IsA<gtk::Wid
 }
 
 /// A white rounded card holding `rows`, with hairlines between them.
-fn settings_group(rows: &[gtk::Box]) -> gtk::Box {
+pub(crate) fn settings_group(rows: &[gtk::Box]) -> gtk::Box {
     let group = gtk::Box::new(gtk::Orientation::Vertical, 0);
     group.add_css_class("settings-group");
     for (index, row) in rows.iter().enumerate() {
@@ -236,7 +268,7 @@ fn settings_group(rows: &[gtk::Box]) -> gtk::Box {
     group
 }
 
-fn section_heading(text: &str) -> gtk::Label {
+pub(crate) fn section_heading(text: &str) -> gtk::Label {
     let label = gtk::Label::new(Some(text));
     label.set_halign(gtk::Align::Start);
     label.set_xalign(0.0);
@@ -246,7 +278,7 @@ fn section_heading(text: &str) -> gtk::Label {
 
 /// macOS pop-up button: the current value plus the blue up/down stepper.
 /// The choice is only remembered by the button for now.
-fn popup_button(options: &'static [&'static str], selected: usize) -> gtk::Button {
+pub(crate) fn popup_button(options: &'static [&'static str], selected: usize) -> gtk::Button {
     let value = gtk::Label::new(Some(options[selected]));
     value.add_css_class("settings-popup-value");
 
@@ -283,11 +315,11 @@ fn popup_button(options: &'static [&'static str], selected: usize) -> gtk::Butto
     button
 }
 
-fn popup_row(title: &str, options: &'static [&'static str], selected: usize) -> gtk::Box {
+pub(crate) fn popup_row(title: &str, options: &'static [&'static str], selected: usize) -> gtk::Box {
     settings_row(title, None, &popup_button(options, selected))
 }
 
-fn switch_row(title: &str, subtitle: Option<&str>, active: bool) -> (gtk::Box, gtk::Switch) {
+pub(crate) fn switch_row(title: &str, subtitle: Option<&str>, active: bool) -> (gtk::Box, gtk::Switch) {
     let switch = gtk::Switch::new();
     switch.set_active(active);
     (settings_row(title, subtitle, &switch), switch)
@@ -611,9 +643,164 @@ fn build_general_page(body: &gtk::Box, app: &gtk::Application) {
     }
 
     let software_update = navigation_row("Software Update", "software-update-available-symbolic");
+    {
+        let gesture = gtk::GestureClick::new();
+        gesture.connect_released(move |_, _, _, _| open_subpage("software-update", "Software Update"));
+        software_update.add_controller(gesture);
+    }
     let storage = navigation_row("Storage", "drive-harddisk-symbolic");
 
     body.append(&settings_group(&[about, software_update, storage]));
+}
+
+/// Appearance page: Dark Mode and the Liquid Glass strength slider.
+///
+/// The slider drives the KWin glass plugin (see `glass_plugin`): the value is
+/// saved at once, but KWin is only told once the slider has been still for a
+/// moment, since each update reloads the compositor's effect settings.
+fn build_appearance_page(body: &gtk::Box, app: &gtk::Application) {
+    let prefs = crate::preferences::current();
+
+    body.append(&section_heading("Appearance"));
+    let dark_mode = gtk::Switch::new();
+    dark_mode.set_active(prefs.dark_mode);
+    let app = app.clone();
+    dark_mode.connect_active_notify(move |switch| {
+        crate::preferences::set_dark_mode(switch.is_active(), &app);
+    });
+    body.append(&settings_group(&[settings_row("Dark Mode", None, &dark_mode)]));
+
+    body.append(&section_heading("Liquid Glass"));
+    let strength = gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 1.0);
+    strength.set_value(prefs.liquid_glass_strength);
+    let generation = std::rc::Rc::new(std::cell::Cell::new(0u32));
+    strength.connect_value_changed(move |scale| {
+        let value = scale.value();
+        crate::preferences::set_liquid_glass_strength(value);
+        let this = generation.get().wrapping_add(1);
+        generation.set(this);
+        let generation = std::rc::Rc::clone(&generation);
+        glib::timeout_add_local_once(std::time::Duration::from_millis(150), move || {
+            // A newer slider move supersedes this one.
+            if generation.get() == this {
+                crate::glass_plugin::apply_in_background(value);
+            }
+        });
+    });
+    let card = gtk::Box::new(gtk::Orientation::Horizontal, 28);
+    card.add_css_class("settings-row");
+    card.append(&slider_column("Blur strength", &strength, "Light", "Strong"));
+    body.append(&settings_group(&[card]));
+}
+
+// ---- sub-pages (pages opened from inside another page) ----------------
+
+struct Nav {
+    stack: glib::WeakRef<gtk::Stack>,
+    title: glib::WeakRef<gtk::Label>,
+    back: glib::WeakRef<gtk::Button>,
+    forward: glib::WeakRef<gtk::Button>,
+    /// Page to return to, and the sub-page that was opened from it.
+    parent: Option<(String, String)>,
+    sub: Option<(String, String)>,
+}
+
+thread_local! {
+    static NAV: RefCell<Option<Nav>> = const { RefCell::new(None) };
+}
+
+fn nav_show(name: &str, title: &str, back: bool, forward: bool) {
+    let parts = NAV.with(|nav| {
+        nav.borrow().as_ref().map(|nav| {
+            (nav.stack.upgrade(), nav.title.upgrade(), nav.back.upgrade(), nav.forward.upgrade())
+        })
+    });
+    let Some((stack, label, back_button, forward_button)) = parts else {
+        return;
+    };
+    if let Some(stack) = stack {
+        stack.set_visible_child_name(name);
+    }
+    if let Some(label) = label {
+        label.set_text(title);
+    }
+    if let Some(button) = back_button {
+        button.set_sensitive(back);
+    }
+    if let Some(button) = forward_button {
+        button.set_sensitive(forward);
+    }
+}
+
+/// Opens a sub-page (see `build_subpage`) in the content area; the Back
+/// button returns to the page it was opened from.
+pub(crate) fn open_subpage(name: &str, title: &str) {
+    let stack = NAV.with(|nav| nav.borrow().as_ref().and_then(|nav| nav.stack.upgrade()));
+    let Some(stack) = stack else {
+        return;
+    };
+    if stack.child_by_name(name).is_none() {
+        stack.add_named(&build_subpage(name), Some(name));
+    }
+    let parent = stack.visible_child_name().map(|parent| {
+        let parent_title = PAGES.iter().find(|page| page.name == parent).map_or("", |page| page.title);
+        (parent.to_string(), parent_title.to_string())
+    });
+    NAV.with(|nav| {
+        if let Some(nav) = nav.borrow_mut().as_mut() {
+            nav.parent = parent;
+            nav.sub = Some((name.to_string(), title.to_string()));
+        }
+    });
+    nav_show(name, title, true, false);
+}
+
+fn nav_back() {
+    let parent = NAV.with(|nav| nav.borrow().as_ref().and_then(|nav| nav.parent.clone()));
+    if let Some((name, title)) = parent {
+        nav_show(&name, &title, false, true);
+    }
+}
+
+fn nav_forward() {
+    let sub = NAV.with(|nav| nav.borrow().as_ref().and_then(|nav| nav.sub.clone()));
+    if let Some((name, title)) = sub {
+        nav_show(&name, &title, true, false);
+    }
+}
+
+/// A sidebar page was chosen: forget any sub-page history.
+fn nav_reset() {
+    let buttons = NAV.with(|nav| {
+        let mut nav = nav.borrow_mut();
+        nav.as_mut().map(|nav| {
+            nav.parent = None;
+            nav.sub = None;
+            (nav.back.upgrade(), nav.forward.upgrade())
+        })
+    });
+    if let Some((back, forward)) = buttons {
+        if let Some(back) = back {
+            back.set_sensitive(false);
+        }
+        if let Some(forward) = forward {
+            forward.set_sensitive(false);
+        }
+    }
+}
+
+fn build_subpage(name: &str) -> gtk::ScrolledWindow {
+    let body = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    body.add_css_class("settings-page");
+    match name {
+        "software-update" => crate::software_update_page::build(&body),
+        _ => {}
+    }
+    let scroller = gtk::ScrolledWindow::new();
+    scroller.set_hscrollbar_policy(gtk::PolicyType::Never);
+    scroller.set_vexpand(true);
+    scroller.set_child(Some(&body));
+    scroller
 }
 
 /// The scrolling body of one settings page.
@@ -692,16 +879,11 @@ fn build_page(name: &str, app: &gtk::Application) -> gtk::ScrolledWindow {
                 iphone_widgets,
             ]));
 
-            // ---- Appearance ----
-            body.append(&section_heading("Appearance"));
-            let dark_mode = gtk::Switch::new();
-            dark_mode.set_active(prefs.dark_mode);
-            let app = app.clone();
-            dark_mode.connect_active_notify(move |switch| {
-                crate::preferences::set_dark_mode(switch.is_active(), &app);
-            });
-            body.append(&settings_group(&[settings_row("Dark Mode", None, &dark_mode)]));
         }
+        "appearance" => build_appearance_page(&body, app),
+        "wifi" => crate::wifi_page::build(&body),
+        "displays" => crate::displays_page::build(&body),
+        "bluetooth" => crate::bluetooth_page::build(&body),
         "wallpaper" => build_wallpaper_page(&body),
         _ => {
             let autohide = gtk::Switch::new();
@@ -721,10 +903,11 @@ fn build_page(name: &str, app: &gtk::Application) -> gtk::ScrolledWindow {
 }
 
 /// The pill-shaped back/forward control. Not wired up yet, so both are disabled.
-fn navigation_pill() -> gtk::Box {
+fn navigation_pill() -> (gtk::Box, gtk::Button, gtk::Button) {
     let navigation = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     navigation.add_css_class("settings-navigation");
     navigation.set_valign(gtk::Align::Center);
+    let mut buttons = Vec::new();
     for (index, (icon_name, tooltip)) in [
         ("go-previous-symbolic", "Back"),
         ("go-next-symbolic", "Forward"),
@@ -745,8 +928,11 @@ fn navigation_pill() -> gtk::Box {
         icon.set_pixel_size(16);
         button.set_child(Some(&icon));
         navigation.append(&button);
+        buttons.push(button);
     }
-    navigation
+    let forward = buttons.pop().unwrap();
+    let back = buttons.pop().unwrap();
+    (navigation, back, forward)
 }
 
 fn compact_window_control_children(widget: &gtk::Widget) {
@@ -880,7 +1066,10 @@ pub fn present(app: &gtk::Application) {
 
     let toolbar = gtk::Box::new(gtk::Orientation::Horizontal, 16);
     toolbar.add_css_class("settings-toolbar");
-    toolbar.append(&navigation_pill());
+    let (pill, back_button, forward_button) = navigation_pill();
+    back_button.connect_clicked(|_| nav_back());
+    forward_button.connect_clicked(|_| nav_forward());
+    toolbar.append(&pill);
     toolbar.append(&title);
     let toolbar_handle = gtk::WindowHandle::new();
     toolbar_handle.set_child(Some(&toolbar));
@@ -916,8 +1105,35 @@ pub fn present(app: &gtk::Application) {
         if let Some(title) = title_for_rows.upgrade() {
             title.set_text(page.title);
         }
+        nav_reset();
     });
-    if let Some(first) = list.row_at_index(0) {
+    // Clicking the page that is already selected leaves any sub-page.
+    let stack_for_activate = stack.downgrade();
+    let title_for_activate = title.downgrade();
+    list.connect_row_activated(move |_, row| {
+        let Some(page) = PAGES.get(row.index() as usize) else {
+            return;
+        };
+        if let Some(stack) = stack_for_activate.upgrade() {
+            stack.set_visible_child_name(page.name);
+        }
+        if let Some(title) = title_for_activate.upgrade() {
+            title.set_text(page.title);
+        }
+        nav_reset();
+    });
+    NAV.with(|nav| {
+        *nav.borrow_mut() = Some(Nav {
+            stack: stack.downgrade(),
+            title: title.downgrade(),
+            back: back_button.downgrade(),
+            forward: forward_button.downgrade(),
+            parent: None,
+            sub: None,
+        });
+    });
+    let first_page = PAGES.iter().position(|page| page.name == "general").unwrap_or(0);
+    if let Some(first) = list.row_at_index(first_page as i32) {
         list.select_row(Some(&first));
     }
 

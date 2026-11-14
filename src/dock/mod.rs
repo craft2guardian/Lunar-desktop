@@ -13,5 +13,6 @@ mod windows;
 
 // Public API used by desktop.rs and menubar.rs
 pub use launcher::{desktop_file_for, spawn_detached};
+pub(crate) use launcher::launch_app_detached;
 pub use layout::window;
 pub use windows::{run_active_window_action, run_window_action};

@@ -1,18 +1,20 @@
-//! Renders the menu bar's frosted-glass backdrop on the CPU.
+//! Renders the menu bar's backdrop on the CPU: the wallpaper behind it, blurred.
 //!
-//! Wayland has no portable "blur what is behind me" request, but the menu bar
-//! only ever sits directly on the wallpaper, so we can blur the wallpaper
-//! itself. We crop it exactly as the wallpaper window shows it (same cover
-//! maths) and blur it with edge clamping, so the strip neither fades out nor
-//! shifts at the screen edges (which GPU blur nodes would do).
+//! The menu bar deliberately gets no compositor effect (so the KWin glass
+//! plugin leaves it alone) but should still take its colours from the
+//! wallpaper under it. The bar only ever sits directly on the wallpaper, so we
+//! blur the wallpaper itself. We crop it exactly as the wallpaper window shows
+//! it ("cover" scaling, centred) and blur it with edge clamping, so the strip
+//! neither fades out nor shifts at the screen edges.
 //!
-//! This runs once per output size / scale change over a strip a few dozen
-//! pixels tall, so the cost is negligible and nothing runs while idle.
+//! This runs once per output size / scale / wallpaper change over a strip a
+//! few dozen pixels tall, so the cost is small and nothing runs while idle.
 
-use crate::wallpaper::{cover_rect, Image};
+use gtk::gdk;
+use gtk::prelude::*;
 
 /// Box-blur passes per axis. Three approximate a Gaussian closely.
-const PASSES: usize = 3;
+pub const PASSES: usize = 3;
 
 /// Renders the top `height` pixel rows of the wallpaper as shown on an output
 /// of `output` logical size at integer `scale`, blurred with a box radius of
@@ -21,40 +23,40 @@ const PASSES: usize = 3;
 /// Rows near the bottom of the strip are only blur context: callers should
 /// include `PASSES * radius` extra rows below what they intend to show.
 pub fn render(
-    image: &Image,
+    texture: &gdk::Texture,
     output: (f32, f32),
     width: usize,
     height: usize,
     scale: usize,
     radius: usize,
 ) -> Vec<u8> {
-    let cover = cover_rect(image.width as f32, image.height as f32, output.0, output.1);
-    let k = scale as f32;
-    // Source pixels per logical pixel on each axis.
-    let (sx, sy) = (
-        image.width as f32 / cover.width,
-        image.height as f32 / cover.height,
-    );
+    let (image_w, image_h) = (texture.width().max(1) as usize, texture.height().max(1) as usize);
+
+    // Cover maths, as the wallpaper window draws it: scale to fill the output,
+    // centre, crop the overflow. `cover` is the picture's size and offset in
+    // logical pixels; `per_logical` is source pixels per logical pixel.
+    let cover_scale = (output.0 / image_w as f32).max(output.1 / image_h as f32);
+    let (shown_w, shown_h) = (image_w as f32 * cover_scale, image_h as f32 * cover_scale);
+    let (offset_x, offset_y) = ((output.0 - shown_w) / 2.0, (output.1 - shown_h) / 2.0);
+    let per_logical = 1.0 / cover_scale;
+    let k = scale.max(1) as f32;
 
     // Temporary full-size copy; freed when this function returns.
-    let (pixels, stride) = image.download_rgba();
-    let source = Source {
-        data: &pixels,
-        stride,
-        width: image.width,
-        height: image.height,
-    };
+    let mut downloader = gdk::TextureDownloader::new(texture);
+    downloader.set_format(gdk::MemoryFormat::R8g8b8a8);
+    let (bytes, stride) = downloader.download_bytes();
+    let source = Source { data: &bytes, stride, width: image_w, height: image_h };
 
     let mut buf = vec![0f32; width * height * 3];
     for y in 0..height {
-        let ty = ((y as f32 + 0.5) / k - cover.y) * sy - 0.5;
+        let ty = ((y as f32 + 0.5) / k - offset_y) * per_logical - 0.5;
         for x in 0..width {
-            let tx = ((x as f32 + 0.5) / k - cover.x) * sx - 0.5;
+            let tx = ((x as f32 + 0.5) / k - offset_x) * per_logical - 0.5;
             let rgb = source.sample(tx, ty);
             buf[(y * width + x) * 3..][..3].copy_from_slice(&rgb);
         }
     }
-    drop(pixels);
+    drop(bytes);
 
     blur(&mut buf, width, height, radius);
 

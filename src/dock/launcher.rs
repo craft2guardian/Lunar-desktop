@@ -145,6 +145,10 @@ pub(crate) fn settings_window_action(action: &str) {
 }
 
 pub(crate) fn launch_entry(entry: &Entry) {
+    if entry.command == crate::launchpad::COMMAND {
+        crate::launchpad::toggle();
+        return;
+    }
     if entry.command == kwin_windows::SETTINGS_IDENTITY {
         settings_window_action("activate");
         return;

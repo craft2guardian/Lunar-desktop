@@ -108,7 +108,7 @@ struct WifiState {
 
 /// Splits one line of `nmcli -t` output (fields separated by `:`, with `\:`
 /// and `\\` as escapes).
-fn split_terse(line: &str) -> Vec<String> {
+pub(crate) fn split_terse(line: &str) -> Vec<String> {
     let mut fields = vec![String::new()];
     let mut chars = line.chars();
     while let Some(c) = chars.next() {
@@ -205,7 +205,7 @@ fn signal_bars(signal: u8) -> &'static str {
 }
 
 /// Opens KDE's network settings page.
-fn open_network_settings() {
+pub(crate) fn open_network_settings() {
     use std::ffi::OsStr;
     for (program, args) in [
         ("kcmshell6", "kcm_networkmanagement"),
@@ -429,6 +429,7 @@ fn wifi_menu() -> gtk::MenuButton {
 
     popover.set_child(Some(&menu));
     crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
+    popover.add_css_class("lunar-blurred-popover");
     // Blur just the menu body, and re-fit it when the dropdown opens or closes.
     let refresh_blur = context_menu::attach_blur_region(
         &popover,
@@ -1528,9 +1529,9 @@ fn system_menu(popover: &gtk::Popover, app: &gtk::Application) -> gtk::Box {
 }
 
 /// Distance from the active-app menu's left edge to the text of its items:
-/// `.active-app-menu` padding (3px) + `.active-app-menu button.lunar-menu-item`
-/// padding (7px) in style.rs. Keep in sync with those rules.
-const ACTIVE_MENU_TEXT_INSET: f32 = 10.0;
+/// `.active-app-menu` padding (6px) + `.active-app-menu button.lunar-menu-item`
+/// padding (10px) in style.rs. Keep in sync with those rules.
+const ACTIVE_MENU_TEXT_INSET: f32 = 16.0;
 
 /// Aligns the text of the active app's menu items with the app name in the bar
 /// (the menu box itself then sticks out to the left by the inset, as on macOS).
@@ -1578,6 +1579,53 @@ fn find_by_class(widget: &gtk::Widget, class: &str) -> Option<gtk::Widget> {
         child = current.next_sibling();
     }
     None
+}
+
+/// How far (logical px, per pass) the wallpaper under the bar is blurred. Big
+/// enough that the bar reads as soft blocks of the wallpaper's colours.
+const BACKDROP_BLUR: usize = 20;
+
+/// Gives the bar its solid colours: the wallpaper behind it, blurred. Skipped
+/// when the backdrop is already up to date for this output (same size and
+/// scale) unless `force` is set, which a wallpaper change needs.
+pub fn set_backdrop(
+    window: &gtk::Window,
+    image: &crate::wallpaper::Image,
+    monitor: &gdk::Monitor,
+    force: bool,
+) {
+    let Some(strip) = find_by_class(window.upcast_ref(), "menubar-glass").and_downcast::<GlassStrip>() else {
+        return;
+    };
+    let geometry = monitor.geometry();
+    let scale = monitor.scale_factor().max(1);
+    let key = (geometry.width(), geometry.height(), scale);
+    if !force && strip.backdrop_key() == Some(key) {
+        return;
+    }
+    if geometry.width() <= 0 || geometry.height() <= 0 {
+        return;
+    }
+    let (width, scale_px) = ((geometry.width() * scale) as usize, scale as usize);
+    let radius = BACKDROP_BLUR * scale_px;
+    // The bar plus the rows below it that the blur reads from.
+    let rows = HEIGHT as usize * scale_px + crate::frost::PASSES * radius;
+    let pixels = crate::frost::render(
+        &image.texture,
+        (geometry.width() as f32, geometry.height() as f32),
+        width,
+        rows,
+        scale_px,
+        radius,
+    );
+    let texture = gdk::MemoryTexture::new(
+        width as i32,
+        rows as i32,
+        gdk::MemoryFormat::R8g8b8a8,
+        &glib::Bytes::from_owned(pixels),
+        width * 4,
+    );
+    strip.set_backdrop(texture.upcast(), scale, key);
 }
 
 /// Switches the bar between white text and near-black text (and the matching
@@ -1924,7 +1972,9 @@ pub fn window(
         kde_shell::configure_window(&window, monitor, Role::Panel, geometry.x(), geometry.y());
     }
     enable_hover_switching(&window);
-    let _blur = context_menu::attach_window_widget_blur(&window, &glass, 0);
+    // The bar deliberately asks KWin for no backdrop effect, so the glass
+    // plugin (blur + refraction) leaves it alone; it keeps only its own tint
+    // and hairline (`GlassStrip`). Its menus still blur, see `attach_blur`.
     window
 }
 

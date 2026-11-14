@@ -2,24 +2,31 @@
 
 mod about;
 mod animation;
+mod bluetooth_page;
 mod config;
 mod context_menu;
 mod control_center;
 mod desktop;
+mod displays_page;
 mod dock;
+mod frost;
 mod glass;
 mod glass_config;
+mod glass_plugin;
 mod glass_preview;
 mod kde_shell;
 mod kwin_windows;
+mod launchpad;
 mod liquid_glass;
 mod magnify;
 mod menubar;
 mod preferences;
 mod settings;
+mod software_update_page;
 mod style;
 mod thumbnail;
 mod wallpaper;
+mod wifi_page;
 
 use gtk::glib;
 use gtk::prelude::*;

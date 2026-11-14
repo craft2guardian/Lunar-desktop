@@ -88,6 +88,13 @@ impl Desktop {
         )
     }
 
+    /// Text colour and blurred-wallpaper backdrop of the menu bar of `monitor`.
+    /// `force` rebuilds the backdrop even if the output is unchanged.
+    fn style_bar(window: &gtk::Window, image: &wallpaper::Image, monitor: &gdk::Monitor, force: bool) {
+        menubar::set_tone(window, Self::bar_tone(image, monitor));
+        menubar::set_backdrop(window, image, monitor, force);
+    }
+
     /// Shows the wallpaper currently chosen in Settings on every output.
     fn reload_wallpaper(&self) {
         match wallpaper::Image::load_current() {
@@ -95,7 +102,7 @@ impl Desktop {
                 let image = Rc::new(image);
                 for output in self.outputs.borrow().iter() {
                     wallpaper::set_image(&output.wallpaper, &image);
-                    menubar::set_tone(&output.menubar, Self::bar_tone(&image, &output.monitor));
+                    Self::style_bar(&output.menubar, &image, &output.monitor, true);
                 }
                 *self.image.borrow_mut() = image;
             }
@@ -132,7 +139,7 @@ impl Desktop {
             let wallpaper = wallpaper::window(&self.app, &image, &monitor);
             let menubar = menubar::window(&self.app, &monitor, self.kwin_windows.clone());
             let dock = dock::window(&self.app, &monitor, self.kwin_windows.clone());
-            menubar::set_tone(&menubar, Self::bar_tone(&image, &monitor));
+            Self::style_bar(&menubar, &image, &monitor, false);
             // Background first, so the bar always stacks above it.
             wallpaper.present();
             menubar.present();
@@ -148,7 +155,7 @@ impl Desktop {
         // A changed resolution or aspect ratio changes what the bar sits on.
         let image = self.image.borrow().clone();
         for output in outputs.iter() {
-            menubar::set_tone(&output.menubar, Self::bar_tone(&image, &output.monitor));
+            Self::style_bar(&output.menubar, &image, &output.monitor, false);
         }
     }
 }

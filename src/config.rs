@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 /// Used when no config file is found or the found one is unusable.
 const DEFAULT_CONFIG: &str = include_str!("../config/dock.toml");
 
+/// Dock command of the built-in Launchpad tile (handled by `launchpad.rs`).
+pub const LAUNCHPAD_COMMAND: &str = "lunar:launchpad";
+
 #[derive(Clone)]
 pub struct Entry {
     pub name: String,
@@ -16,6 +19,13 @@ pub struct Entry {
 /// The bundled/configured entries start pinned. Once the user changes a pin,
 /// the resulting list is stored separately from the editable dock.toml.
 pub fn load_pins(entries: &[Entry]) -> HashSet<String> {
+    let mut pins = load_saved_pins(entries);
+    // The Launchpad is part of the shell and always has its tile.
+    pins.insert(LAUNCHPAD_COMMAND.to_string());
+    pins
+}
+
+fn load_saved_pins(entries: &[Entry]) -> HashSet<String> {
     let Some(path) = pins_path() else {
         return entries.iter().map(|entry| entry.command.clone()).collect();
     };
@@ -100,10 +110,37 @@ pub fn load_dock() -> Vec<Entry> {
         None => (DEFAULT_CONFIG.to_string(), None),
     };
 
-    parse(&text, base.as_deref()).unwrap_or_else(|e| {
+    let mut entries = parse(&text, base.as_deref()).unwrap_or_else(|e| {
         eprintln!("lunar-desktop: invalid dock config ({e}); using the built-in default");
         parse(DEFAULT_CONFIG, None).unwrap_or_default()
-    })
+    });
+    ensure_launchpad(&mut entries, base.as_deref());
+    entries
+}
+
+/// Older dock.toml files do not list the Launchpad: put its tile right after
+/// Finder (or first) so it is always there.
+fn ensure_launchpad(entries: &mut Vec<Entry>, base: Option<&Path>) {
+    if entries.iter().any(|entry| entry.command == LAUNCHPAD_COMMAND) {
+        return;
+    }
+    const ICON: &str = "assets/dock-icons/launchpad.png";
+    let mut icon = resolve_icon_path(ICON, base);
+    if !icon.exists() {
+        icon = Path::new(env!("CARGO_MANIFEST_DIR")).join(ICON);
+    }
+    let position = entries
+        .iter()
+        .position(|entry| entry.name.eq_ignore_ascii_case("finder"))
+        .map_or(0, |index| index + 1);
+    entries.insert(
+        position,
+        Entry {
+            name: "Launchpad".to_string(),
+            icon: Some(icon),
+            command: LAUNCHPAD_COMMAND.to_string(),
+        },
+    );
 }
 
 /// Search order: $LUNAR_DOCK_CONFIG, ./config/dock.toml, next to the built

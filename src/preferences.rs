@@ -16,6 +16,8 @@ pub struct Preferences {
     /// On: a minimised window disappears into its application's Dock icon.
     /// Off: it gets its own thumbnail tile on the right of the Dock.
     pub minimize_into_icon: bool,
+    /// 0–100: strength of the KWin glass plugin's refraction (0 = off).
+    pub liquid_glass_strength: f64,
 }
 
 impl Default for Preferences {
@@ -26,6 +28,7 @@ impl Default for Preferences {
             dock_magnification: 60.0,
             dark_mode: false,
             minimize_into_icon: true,
+            liquid_glass_strength: 60.0,
         }
     }
 }
@@ -139,6 +142,12 @@ pub fn set_dock_auto_hide(value: bool) {
 /// Sets the hover magnification (0–100, 0 = off).
 pub fn set_dock_magnification(value: f64) {
     update(|preferences| preferences.dock_magnification = value.clamp(0.0, 100.0));
+}
+
+/// Sets the Liquid Glass strength (0–100) and saves it. Pushing the value to
+/// KWin is the caller's job (`glass_plugin::apply`), so a drag can debounce it.
+pub fn set_liquid_glass_strength(value: f64) {
+    update(|preferences| preferences.liquid_glass_strength = value.clamp(0.0, 100.0));
 }
 
 pub fn set_minimize_into_icon(value: bool) {
@@ -284,6 +293,15 @@ fn load() -> Preferences {
             .get("minimize_into_icon")
             .and_then(toml::Value::as_bool)
             .unwrap_or(true),
+        liquid_glass_strength: table
+            .get("liquid_glass_strength")
+            .and_then(|value| {
+                value
+                    .as_float()
+                    .or_else(|| value.as_integer().map(|integer| integer as f64))
+            })
+            .unwrap_or(60.0)
+            .clamp(0.0, 100.0),
     }
 }
 
@@ -292,12 +310,13 @@ fn save(preferences: Preferences) -> Result<(), String> {
     let parent = path.parent().ok_or("invalid settings path")?;
     std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     let mut contents = format!(
-        "dock_size = {}\ndock_auto_hide = {}\ndock_magnification = {}\ndark_mode = {}\nminimize_into_icon = {}\n",
+        "dock_size = {}\ndock_auto_hide = {}\ndock_magnification = {}\ndark_mode = {}\nminimize_into_icon = {}\nliquid_glass_strength = {}\n",
         preferences.dock_size,
         preferences.dock_auto_hide,
         preferences.dock_magnification,
         preferences.dark_mode,
-        preferences.minimize_into_icon
+        preferences.minimize_into_icon,
+        preferences.liquid_glass_strength
     );
     if let Some(wallpaper) = wallpaper_path() {
         // A TOML string, so quotes and backslashes in the path are escaped.

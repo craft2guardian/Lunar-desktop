@@ -536,41 +536,102 @@ pub mod presets {
         dark_adapts: false,
     };
 
-    /// Menus and popovers: near-transparent glass with a cool dark tint so
-    /// light text stays legible over any wallpaper. Barely there: the blurred
-    /// backdrop does most of the work.
+    /// Menus and popovers, tuned to match a macOS menu: a *thin, dark, neutral*
+    /// wash over the blurred backdrop so the backdrop's colour still comes
+    /// through (macOS darkens what is behind a menu by roughly 10-20 % and keeps
+    /// its hue; it does not lay a milky grey sheet over it). There is no sheen,
+    /// no specular line and no bright rim: the only edge detail is a very faint
+    /// inner light line plus a thin dark hairline outside (the contact shadow).
     pub const MENU: Preset = Preset {
         radius: Radius::Fixed(12.0),
+        // macOS: a dark, slightly cool neutral wash that lets the blurred
+        // backdrop's colour read through (about 40-45 % opaque).
         body: Body {
-            top: rgba(105, 105, 112, 0.48),
-            bottom: rgba(88, 88, 96, 0.54),
-            on_top: rgba(105, 105, 112, 0.48),
-            on_bottom: rgba(88, 88, 96, 0.54),
+            top: rgba(40, 38, 52, 0.40),
+            bottom: rgba(32, 32, 46, 0.46),
+            on_top: rgba(40, 38, 52, 0.40),
+            on_bottom: rgba(32, 32, 46, 0.46),
             ..Body::DEFAULT
         },
         blur: Blur::DEFAULT,
+        // A faint inner edge glow, as on a thick glass slab.
         refraction: Refraction {
-            glow: rgba(255, 255, 255, 0.045),
-            reach: 0.5,
+            glow: rgba(255, 255, 255, 0.07),
+            reach: 0.45,
             ..Refraction::DEFAULT
         },
+        // A thin, soft key-light line along the upper-left inner edge.
         highlight: Highlight {
-            strength: 0.22,
+            strength: 0.14,
             ..Highlight::DEFAULT
         },
+        // A barely-there sheen over the top of the menu.
         reflection: Reflection {
-            strength: 0.10,
+            strength: 0.06,
+            coverage: 0.45,
             ..Reflection::DEFAULT
         },
-        border: Border::DEFAULT,
+        border: Border { width: 1.0, opacity: 1.0 },
+        // The visible 1px light rim around the whole menu, brightest at the
+        // upper-left and softest at the lower-right.
         edge: EdgeLight {
-            lit: rgba(255, 255, 255, 0.28),
-            side: rgba(255, 255, 255, 0.08),
+            lit: rgba(255, 255, 255, 0.36),
+            side: rgba(255, 255, 255, 0.20),
             far: rgba(255, 255, 255, 0.16),
             ..EdgeLight::DEFAULT
         },
         shadow: Shadow {
+            intensity: 0.85,
+            color: [0.0, 0.0, 0.03],
+            ambient: ShadowLayer { alpha: 0.30, dx: 0.0, dy: 8.0, blur: 22.0, spread: 0.0 },
+            // ~1px dark hairline hugging the menu, outside the light rim.
+            contact: ShadowLayer { alpha: 0.60, dx: 0.0, dy: 0.0, blur: 1.0, spread: 0.5 },
+        },
+        depth: 1.0,
+        motion: Motion::DEFAULT,
+        interactive: false,
+        hover_clears: false,
+        dark_adapts: true,
+    };
+
+    /// Menus that are *not* blurred by the compositor (context menus and the
+    /// Settings drop-downs). Same look as [`MENU`], but with a nearly opaque
+    /// body: the thin wash only reads well over a blurred backdrop, and
+    /// without blur it would let the desktop show straight through.
+    pub const MENU_SOLID: Preset = Preset {
+        radius: Radius::Fixed(12.0),
+        body: Body {
+            top: rgba(38, 38, 46, 0.97),
+            bottom: rgba(32, 32, 40, 0.97),
+            on_top: rgba(38, 38, 46, 0.97),
+            on_bottom: rgba(32, 32, 40, 0.97),
+            ..Body::DEFAULT
+        },
+        blur: Blur::DEFAULT,
+        refraction: Refraction {
+            glow: rgba(255, 255, 255, 0.03),
+            reach: 0.5,
+            ..Refraction::DEFAULT
+        },
+        highlight: Highlight {
+            strength: 0.05,
+            ..Highlight::DEFAULT
+        },
+        reflection: Reflection {
+            strength: 0.0,
+            ..Reflection::DEFAULT
+        },
+        border: Border::DEFAULT,
+        edge: EdgeLight {
+            lit: rgba(255, 255, 255, 0.10),
+            side: rgba(255, 255, 255, 0.04),
+            far: rgba(255, 255, 255, 0.06),
+            ..EdgeLight::DEFAULT
+        },
+        shadow: Shadow {
             intensity: 0.75,
+            color: [0.0, 0.0, 0.02],
+            contact: ShadowLayer { alpha: 0.55, dx: 0.0, dy: 0.0, blur: 1.0, spread: 0.5 },
             ..Shadow::DEFAULT
         },
         depth: 1.0,
@@ -580,24 +641,16 @@ pub mod presets {
         dark_adapts: true,
     };
 
-    /// The Dock shelf: a long, clear capsule floating above the wallpaper.
+    /// The Dock shelf: only the outer border is painted here. The glass itself
+    /// (blur, refraction, tint) comes from the KWin glass plugin, so the body,
+    /// meniscus glow, specular lines, sheen and drop shadow are all off.
     pub const DOCK: Preset = Preset {
         radius: Radius::Fixed(26.0),
-        body: Body {
-            top: rgba(255, 255, 255, 0.24),
-            bottom: rgba(255, 255, 255, 0.12),
-            on_top: rgba(255, 255, 255, 0.24),
-            on_bottom: rgba(255, 255, 255, 0.12),
-            ..Body::DEFAULT
-        },
+        body: Body::DEFAULT,
         blur: Blur::DEFAULT,
-        refraction: Refraction {
-            glow: rgba(255, 255, 255, 0.06),
-            reach: 0.5,
-            ..Refraction::DEFAULT
-        },
-        highlight: Highlight { strength: 0.20, ..Highlight::DEFAULT },
-        reflection: Reflection { strength: 0.10, ..Reflection::DEFAULT },
+        refraction: Refraction::DEFAULT,
+        highlight: Highlight { strength: 0.0, ..Highlight::DEFAULT },
+        reflection: Reflection { strength: 0.0, ..Reflection::DEFAULT },
         border: Border::DEFAULT,
         edge: EdgeLight {
             lit: rgba(255, 255, 255, 0.35),
@@ -605,7 +658,7 @@ pub mod presets {
             far: rgba(255, 255, 255, 0.20),
             ..EdgeLight::DEFAULT
         },
-        shadow: Shadow { intensity: 0.7, ..Shadow::DEFAULT },
+        shadow: Shadow { intensity: 0.0, ..Shadow::DEFAULT },
         depth: 1.0,
         motion: Motion::DEFAULT,
         interactive: false,
@@ -666,6 +719,10 @@ impl Preset {
     }
     pub const fn menu() -> Self {
         presets::MENU
+    }
+    /// The menu look without compositor blur (see [`presets::MENU_SOLID`]).
+    pub const fn menu_solid() -> Self {
+        presets::MENU_SOLID
     }
     pub const fn dock() -> Self {
         presets::DOCK
@@ -952,11 +1009,13 @@ pub const MENU_CHROME: MenuChrome = MenuChrome {
     item_hover_shadow: rgba(0, 40, 140, 0.28),
     item_transition_ms: 120.0,
     item_easing: Easing::Exponential,
-    open_fill: rgba(255, 255, 255, 0.20),
-    open_gradient_top: rgba(255, 255, 255, 0.16),
-    open_gradient_bottom: rgba(255, 255, 255, 0.02),
-    open_rim: rgba(255, 255, 255, 0.45),
-    open_highlight: rgba(255, 255, 255, 0.35),
+    // macOS draws the open title as a flat translucent capsule: no rim, no
+    // inner highlight, no gradient.
+    open_fill: rgba(255, 255, 255, 0.22),
+    open_gradient_top: rgba(255, 255, 255, 0.0),
+    open_gradient_bottom: rgba(255, 255, 255, 0.0),
+    open_rim: rgba(255, 255, 255, 0.0),
+    open_highlight: rgba(255, 255, 255, 0.0),
     open_radius: 13.0,
     shadow_room_slack: 4.0,
     dock_bottom_gap: 2.0,
@@ -1043,20 +1102,16 @@ pub fn css_with(t: &Tuning) -> String {
          popover.lunar-menu-popover.dock-label-popover > arrow {{ background-color: {arrow}; }}\n",
         arrow = css_rgba(scaled(c.arrow_fill, opacity)),
     ));
+    // Hovered / pressed menu items are a flat accent fill (no gradient, rim or
+    // glass shadow), like the selected row in Settings.
     out.push_str(&format!(
         "button.lunar-menu-item {{ transition: background-color {item_ms}ms {item_easing}, color {item_ms}ms {item_easing}; }}\n\
          button.lunar-menu-item:hover,\n\
          button.lunar-menu-item:active {{\n\
-         \x20   background-image: linear-gradient(to bottom, {top}, {bottom});\n\
-         \x20   box-shadow: inset 0 1px 0 {highlight},\n\
-         \x20               inset 0 0 0 0.5px {rim},\n\
-         \x20               0 1px 3px {shadow};\n\
+         \x20   background-color: #0a84ff;\n\
+         \x20   background-image: none;\n\
+         \x20   box-shadow: none;\n\
          }}\n",
-        top = css_rgba(scaled(c.item_hover_top, opacity)),
-        bottom = css_rgba(scaled(c.item_hover_bottom, opacity)),
-        highlight = css_rgba(scaled(c.item_hover_highlight, t.border_opacity)),
-        rim = css_rgba(scaled(c.item_hover_rim, t.border_opacity)),
-        shadow = css_rgba(scaled(c.item_hover_shadow, t.shadow_intensity)),
     ));
     out.push_str(&format!(
         "menubutton.lunar-menu-button.menu-open > button {{\n\

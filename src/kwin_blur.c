@@ -5,6 +5,7 @@
 
 #include "ext-background-effect-v1-client-protocol.h"
 
+#include <math.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -112,6 +113,35 @@ static void add_rounded_rect(struct wl_region *region, int x, int y,
     }
 }
 
+/* Pixel rectangle of `widget` in the native's *surface* coordinates, rounded
+ * inwards so the blur can never poke out past the painted shape (rounding
+ * outwards left a visible blurred sliver beyond the rounded corners). Bounds
+ * relative to the native are already in surface coordinates here; do NOT add
+ * gtk_native_get_surface_transform, that double-counts the popover's shadow
+ * margin and the window's frame offset and shifts the blur. */
+static int widget_surface_rect(GtkNative *native, GtkWidget *widget,
+                               int surface_width, int surface_height,
+                               int *out_x, int *out_y, int *out_w, int *out_h) {
+    graphene_rect_t bounds;
+    if (!gtk_widget_compute_bounds(widget, GTK_WIDGET(native), &bounds)) return 0;
+
+    int x0 = (int) ceilf(bounds.origin.x - 0.01f);
+    int y0 = (int) ceilf(bounds.origin.y - 0.01f);
+    int x1 = (int) floorf(bounds.origin.x + bounds.size.width + 0.01f);
+    int y1 = (int) floorf(bounds.origin.y + bounds.size.height + 0.01f);
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > surface_width) x1 = surface_width;
+    if (y1 > surface_height) y1 = surface_height;
+    if (x1 <= x0 || y1 <= y0) return 0;
+
+    *out_x = x0;
+    *out_y = y0;
+    *out_w = x1 - x0;
+    *out_h = y1 - y0;
+    return 1;
+}
+
 static int set_blur_region(struct blur_handle *handle, GtkNative *native,
                            GtkWidget *region_widget, int corner_radius) {
     GdkSurface *gdk_surface = gtk_native_get_surface(native);
@@ -122,23 +152,13 @@ static int set_blur_region(struct blur_handle *handle, GtkNative *native,
     struct wl_region *region = wl_compositor_create_region(handle->compositor);
     if (!region) return 0;
 
-    graphene_rect_t bounds;
     int x = 0;
     int y = 0;
     int region_width = width;
     int region_height = height;
-    if (region_widget && gtk_widget_compute_bounds(region_widget,
-                                                   GTK_WIDGET(native), &bounds)) {
-        x = (int) bounds.origin.x;
-        y = (int) bounds.origin.y;
-        region_width = (int) (bounds.size.width + 0.999f);
-        region_height = (int) (bounds.size.height + 0.999f);
-    }
-    if (x < 0) { region_width += x; x = 0; }
-    if (y < 0) { region_height += y; y = 0; }
-    if (x + region_width > width) region_width = width - x;
-    if (y + region_height > height) region_height = height - y;
-    if (region_width <= 0 || region_height <= 0) {
+    if (region_widget &&
+        !widget_surface_rect(native, region_widget, width, height,
+                             &x, &y, &region_width, &region_height)) {
         wl_region_destroy(region);
         return 0;
     }
@@ -163,20 +183,11 @@ static int set_blur_regions(struct blur_handle *handle, GtkNative *native,
     if (!region) return 0;
 
     for (int i = 0; i < count; i++) {
-        graphene_rect_t bounds;
+        int x, y, w, h;
         if (!widgets[i] || !gtk_widget_get_mapped(widgets[i]) ||
-            !gtk_widget_compute_bounds(widgets[i], GTK_WIDGET(native), &bounds)) {
+            !widget_surface_rect(native, widgets[i], width, height, &x, &y, &w, &h)) {
             continue;
         }
-        int x = (int) bounds.origin.x;
-        int y = (int) bounds.origin.y;
-        int w = (int) (bounds.size.width + 0.999f);
-        int h = (int) (bounds.size.height + 0.999f);
-        if (x < 0) { w += x; x = 0; }
-        if (y < 0) { h += y; y = 0; }
-        if (x + w > width) w = width - x;
-        if (y + h > height) h = height - y;
-        if (w <= 0 || h <= 0) continue;
         add_rounded_rect(region, x, y, w, h, radii[i]);
     }
 
@@ -368,6 +379,14 @@ int lunar_kde_blur_update_widget(void *opaque, GtkWindow *window,
     struct blur_handle *handle = opaque;
     if (!handle || !window || !region_widget) return 0;
     return set_blur_region(handle, GTK_NATIVE(window), region_widget, corner_radius);
+}
+
+int lunar_kde_blur_update_widgets(void *opaque, GtkWindow *window,
+                                   GtkWidget **widgets, const int *radii,
+                                   int count) {
+    struct blur_handle *handle = opaque;
+    if (!handle || !window || !widgets || !radii || count <= 0) return 0;
+    return set_blur_regions(handle, GTK_NATIVE(window), widgets, radii, count);
 }
 
 void lunar_kde_blur_disable(void *opaque) {

@@ -6,6 +6,7 @@ use crate::context_menu::ContextMenu;
 use crate::kde_shell::{self, Role};
 use gtk::prelude::*;
 use gtk::{gdk, glib};
+use gtk4_layer_shell::{Edge, KeyboardMode, Layer, LayerShell};
 use std::path::{Path, PathBuf};
 
 /// Bundled wallpaper. Regenerate it with `scripts/generate_wallpaper.py`.
@@ -348,7 +349,28 @@ pub fn window(app: &gtk::Application, image: &Image, monitor: &gdk::Monitor) -> 
 
     let geometry = monitor.geometry();
     window.set_default_size(geometry.width(), geometry.height());
-    kde_shell::configure_window(&window, monitor, Role::Desktop, geometry.x(), geometry.y());
+    // A background layer surface anchored to every edge with an exclusive zone
+    // of -1 fills the whole output, including the strip under the menu bar.
+    // KWin 6.8 places the old plasma-shell "desktop" role below the menu bar's
+    // reserved zone, which leaves nothing for the bar's blur to sample.
+    let layer_shell = gtk4_layer_shell::is_supported() && {
+        window.init_layer_shell();
+        window.is_layer_window()
+    };
+    if layer_shell {
+        window.set_namespace(Some("lunar-wallpaper"));
+        window.set_monitor(Some(monitor));
+        window.set_layer(Layer::Background);
+        for edge in [Edge::Top, Edge::Bottom, Edge::Left, Edge::Right] {
+            window.set_anchor(edge, true);
+        }
+        window.set_exclusive_zone(-1);
+        window.set_keyboard_mode(KeyboardMode::None);
+        eprintln!("lunar-desktop: wallpaper uses a full-output background layer surface");
+    } else {
+        eprintln!("lunar-desktop: layer-shell unavailable; wallpaper uses the plasma-shell desktop role");
+        kde_shell::configure_window(&window, monitor, Role::Desktop, geometry.x(), geometry.y());
+    }
     crate::preferences::apply_dark_mode(&window);
     window
 }

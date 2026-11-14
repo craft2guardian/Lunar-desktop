@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=Lunar
-Comment=Lunar desktop on KWin
-Exec=@BINDIR@/lunar-session
-Type=Application
-DesktopNames=Lunar;KDE

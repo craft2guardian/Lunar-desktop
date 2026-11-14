@@ -34,6 +34,13 @@ unsafe extern "C" {
         region_widget: *mut gtk::ffi::GtkWidget,
         corner_radius: i32,
     ) -> i32;
+    fn lunar_kde_blur_update_widgets(
+        handle: *mut c_void,
+        window: *mut gtk::ffi::GtkWindow,
+        widgets: *mut *mut gtk::ffi::GtkWidget,
+        radii: *const i32,
+        count: i32,
+    ) -> i32;
     fn lunar_kde_blur_disable(handle: *mut c_void);
 }
 
@@ -58,13 +65,11 @@ impl ContextMenu {
             content.add_css_class(class);
         }
         popover.set_child(Some(&content));
-        crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu());
-        // Blur only the menu body (not the arrow gap around it).
-        attach_blur_region(
-            &popover,
-            content.upcast_ref::<gtk::Widget>(),
-            crate::liquid_glass::Material::menu().blur_corner(),
-        );
+        // Context menus (desktop, dock, Settings drop-downs) deliberately get
+        // no compositor blur: they use the solid menu material instead, which
+        // is opaque enough to read without a blurred backdrop. Only the menu
+        // bar's own menus are blurred (see `attach_blur`).
+        crate::liquid_glass::glass_popover(&popover, crate::liquid_glass::Material::menu_solid());
 
         Self { popover, content }
     }
@@ -185,6 +190,19 @@ fn menu_button(title: &str, trailing: Option<&str>) -> gtk::Button {
 
 /// Attaches the same KWin compositor blur to any compatible GTK popover.
 pub fn attach_blur(popover: &gtk::Popover) {
+    // Blurred popovers get no transparent shadow margin (see style.rs), so the
+    // blur region is exactly the whole popup surface and cannot drift off the
+    // painted body.
+    popover.add_css_class("lunar-blurred-popover");
+    // When the popover's child is the glass body (see `liquid_glass::glass_popover`),
+    // blur exactly that rounded body. Blurring the whole popover surface would also
+    // cover the transparent margin reserved for the drop shadow, so the blur would
+    // not line up with the painted menu.
+    if let Some(body) = popover.child() {
+        let radius = crate::liquid_glass::Material::menu().blur_corner();
+        let _refit = attach_blur_region(popover, &body, radius);
+        return;
+    }
     let handle: Rc<RefCell<*mut c_void>> = Rc::new(RefCell::new(ptr::null_mut()));
     let on_map = Rc::clone(&handle);
     popover.connect_map(move |popover| {
@@ -243,26 +261,74 @@ pub fn attach_blur_region(
             if !popover.is_mapped() {
                 return;
             }
-            let mut active = on_map.borrow_mut();
-            if active.is_null() {
-                *active = unsafe {
-                    lunar_kde_blur_enable_popover_region(
-                        popover.as_ptr(),
-                        region.as_ptr(),
-                        corner_radius,
-                    )
-                };
-            } else {
-                // The popup surface is reused; refresh the region each time.
-                unsafe {
-                    lunar_kde_blur_update_popover_region(
-                        *active,
-                        popover.as_ptr(),
-                        region.as_ptr(),
-                        corner_radius,
-                    );
+            {
+                let mut active = on_map.borrow_mut();
+                if active.is_null() {
+                    *active = unsafe {
+                        lunar_kde_blur_enable_popover_region(
+                            popover.as_ptr(),
+                            region.as_ptr(),
+                            corner_radius,
+                        )
+                    };
+                } else {
+                    // The popup surface is reused; refresh the region each time.
+                    unsafe {
+                        lunar_kde_blur_update_popover_region(
+                            *active,
+                            popover.as_ptr(),
+                            region.as_ptr(),
+                            corner_radius,
+                        );
+                    }
                 }
             }
+
+            // The menu can still be changing size or position when it first
+            // maps (and the popup surface is reused between openings), so a
+            // region applied once can end up bigger or offset from the painted
+            // body, leaving blur outside it. While the popover is open, re-fit
+            // the region whenever the body's bounds or the surface size change.
+            let handle = Rc::clone(&on_map);
+            let weak_region = region.downgrade();
+            let last_key = std::cell::Cell::new(None::<(i32, i32, i32, i32, i32, i32)>);
+            popover.add_tick_callback(move |popover, _| {
+                if !popover.is_mapped() {
+                    return gtk::glib::ControlFlow::Break;
+                }
+                let Some(region) = weak_region.upgrade() else {
+                    return gtk::glib::ControlFlow::Break;
+                };
+                let active = *handle.borrow();
+                if active.is_null() {
+                    return gtk::glib::ControlFlow::Continue;
+                }
+                let (Some(bounds), Some(surface)) = (
+                    region.compute_bounds(popover),
+                    popover.native().and_then(|native| native.surface()),
+                ) else {
+                    return gtk::glib::ControlFlow::Continue;
+                };
+                let key = (
+                    bounds.x().round() as i32,
+                    bounds.y().round() as i32,
+                    bounds.width().round() as i32,
+                    bounds.height().round() as i32,
+                    surface.width(),
+                    surface.height(),
+                );
+                if last_key.replace(Some(key)) != Some(key) {
+                    unsafe {
+                        lunar_kde_blur_update_popover_region(
+                            active,
+                            popover.as_ptr(),
+                            region.as_ptr(),
+                            corner_radius,
+                        );
+                    }
+                }
+                gtk::glib::ControlFlow::Continue
+            });
         });
     });
     let on_unrealize = Rc::clone(&handle);
@@ -385,6 +451,88 @@ pub fn attach_blur_regions(
 pub fn attach_window_blur(application_window: &gtk::ApplicationWindow) {
     let window: &gtk::Window = application_window.upcast_ref();
     let _refresh = attach_window_widget_blur(window, window, 12);
+}
+
+/// Blurs several rounded widget regions of one window (and nothing between
+/// them). Returns a callback that re-fits the blur.
+pub fn attach_window_regions_blur(
+    window: &gtk::Window,
+    regions: Vec<(gtk::Widget, i32)>,
+) -> Rc<dyn Fn()> {
+    let regions = Rc::new(regions);
+    let handle: Rc<RefCell<*mut c_void>> = Rc::new(RefCell::new(ptr::null_mut()));
+    let mapped = Rc::new(std::cell::Cell::new(false));
+    let signals_connected = Rc::new(std::cell::Cell::new(false));
+    let weak_window = window.downgrade();
+    let refresh: Rc<dyn Fn()> = {
+        let regions = Rc::clone(&regions);
+        let handle = Rc::clone(&handle);
+        let mapped = Rc::clone(&mapped);
+        Rc::new(move || {
+            if !mapped.get() {
+                return;
+            }
+            let Some(window) = weak_window.upgrade() else {
+                return;
+            };
+            let mut active = handle.borrow_mut();
+            if active.is_null() {
+                let Some((first, radius)) = regions.first() else {
+                    return;
+                };
+                *active = unsafe {
+                    lunar_kde_blur_enable_widget(window.as_ptr(), first.as_ptr(), *radius)
+                };
+            }
+            if !active.is_null() {
+                let mut widgets: Vec<*mut gtk::ffi::GtkWidget> =
+                    regions.iter().map(|(widget, _)| widget.as_ptr()).collect();
+                let radii: Vec<i32> = regions.iter().map(|(_, radius)| *radius).collect();
+                unsafe {
+                    lunar_kde_blur_update_widgets(
+                        *active,
+                        window.as_ptr(),
+                        widgets.as_mut_ptr(),
+                        radii.as_ptr(),
+                        widgets.len() as i32,
+                    );
+                }
+            }
+        })
+    };
+
+    let map_refresh = Rc::clone(&refresh);
+    let map_state = Rc::clone(&mapped);
+    window.connect_map(move |window| {
+        map_state.set(true);
+        // Wait for the first allocation; an earlier request can be empty.
+        let initial = Rc::clone(&map_refresh);
+        gtk::glib::idle_add_local_once(move || initial());
+        if !signals_connected.replace(true) {
+            if let Some(surface) = window.surface() {
+                let width_refresh = Rc::clone(&map_refresh);
+                surface.connect_width_notify(move |_| {
+                    let refresh = Rc::clone(&width_refresh);
+                    gtk::glib::idle_add_local_once(move || refresh());
+                });
+                let height_refresh = Rc::clone(&map_refresh);
+                surface.connect_height_notify(move |_| {
+                    let refresh = Rc::clone(&height_refresh);
+                    gtk::glib::idle_add_local_once(move || refresh());
+                });
+            }
+        }
+    });
+    let unmap_handle = Rc::clone(&handle);
+    let unmap_state = Rc::clone(&mapped);
+    window.connect_unmap(move |_| {
+        unmap_state.set(false);
+        let handle = std::mem::replace(&mut *unmap_handle.borrow_mut(), ptr::null_mut());
+        if !handle.is_null() {
+            unsafe { lunar_kde_blur_disable(handle) };
+        }
+    });
+    refresh
 }
 
 /// Attaches compositor blur to a specific rounded widget region within a GTK

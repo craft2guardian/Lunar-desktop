@@ -458,6 +458,12 @@ pub(crate) fn create_tile(
         gesture.set_state(gtk::EventSequenceState::Claimed);
     });
     click_gesture.connect_released(move |_, _, _, _| {
+        // The Launchpad tile opens/closes the in-process app grid: no window
+        // tracking, no launch de-duplication and no bounce.
+        if click_entry.command == crate::launchpad::COMMAND {
+            crate::launchpad::toggle();
+            return;
+        }
         let snapshot = click_tracker.as_ref().map(KWinWindows::snapshot);
         if should_activate_existing(click_program.as_deref(), &click_aliases, snapshot.as_ref()) {
             if let Some(program) = &click_program {

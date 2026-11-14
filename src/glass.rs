@@ -1,7 +1,10 @@
-//! Translucent tint for the menu bar. KWin supplies the actual backdrop blur
-//! through ext-background-effect-v1; this widget only paints a light wash and
+//! The menu bar's background. It asks KWin for no effect (so the glass plugin
+//! never touches it); instead it paints a blurred copy of the wallpaper behind
+//! it (see `frost.rs`, set with `set_backdrop`), a light wash over that, and
 //! the bottom hairline. The wash and hairline values live in `glass_config.rs`
 //! (`STRIP`), so they follow the global glass tuning.
+
+use std::cell::{Cell, RefCell};
 
 use gtk::glib;
 use gtk::prelude::*;
@@ -16,7 +19,13 @@ mod imp {
     use super::*;
 
     #[derive(Default)]
-    pub struct GlassStrip;
+    pub struct GlassStrip {
+        /// Blurred wallpaper strip, drawn at `scale` device pixels per pixel.
+        pub backdrop: RefCell<Option<gdk::Texture>>,
+        pub scale: Cell<i32>,
+        /// (output width, output height, scale) the backdrop was built for.
+        pub key: Cell<Option<(i32, i32, i32)>>,
+    }
 
     #[glib::object_subclass]
     impl ObjectSubclass for GlassStrip {
@@ -36,6 +45,17 @@ mod imp {
             }
 
             let bounds = graphene::Rect::new(0.0, 0.0, width as f32, height as f32);
+            // Blurred wallpaper first, cropped to the bar (the texture also
+            // holds blur context below the bar).
+            if let Some(texture) = self.backdrop.borrow().as_ref() {
+                let k = self.scale.get().max(1) as f32;
+                snapshot.push_clip(&bounds);
+                snapshot.append_texture(
+                    texture,
+                    &graphene::Rect::new(0.0, 0.0, texture.width() as f32 / k, texture.height() as f32 / k),
+                );
+                snapshot.pop();
+            }
             // The tint follows what is behind the bar (see `wallpaper::bar_tone`),
             // not the dark-mode setting: the window carries the class.
             let light_text = widget
@@ -62,5 +82,20 @@ glib::wrapper! {
 impl GlassStrip {
     pub fn new() -> Self {
         glib::Object::new()
+    }
+
+    /// What the current backdrop was built for, if there is one.
+    pub fn backdrop_key(&self) -> Option<(i32, i32, i32)> {
+        self.imp().key.get()
+    }
+
+    /// Sets the blurred wallpaper strip. `scale` is its device pixels per
+    /// logical pixel; `key` identifies the output it was built for.
+    pub fn set_backdrop(&self, texture: gdk::Texture, scale: i32, key: (i32, i32, i32)) {
+        let imp = self.imp();
+        imp.backdrop.replace(Some(texture));
+        imp.scale.set(scale);
+        imp.key.set(Some(key));
+        self.queue_draw();
     }
 }

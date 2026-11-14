@@ -15,6 +15,12 @@
 name = "Finder"
 command = "dolphin"
 
+# Built in: opens the Launchpad app grid. Keep the command as is.
+[[app]]
+name = "Launchpad"
+icon = "assets/dock-icons/launchpad.png"
+command = "lunar:launchpad"
+
 [[app]]
 name = "Browser"
 icon = "assets/dock-icons/browser.png"

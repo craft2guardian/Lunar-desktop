@@ -45,11 +45,13 @@ window.lunar-settings-window {
     box-shadow: none;
 }
 
-/* Sidebar: tinted over the blurred backdrop. */
+/* Sidebar: the same flat, mostly opaque tint over the blurred backdrop that
+   the About window uses (see .lunar-about-window .settings-root), with no
+   gradient or bright edge lines. */
 .settings-sidebar {
-    background-color: rgba(236, 240, 248, 0.78);
-    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.06));
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    background-color: rgba(246, 246, 248, 0.88);
+    background-image: none;
+    box-shadow: none;
     border-right: 1px solid rgba(0, 0, 0, 0.07);
 }
 .settings-sidebar-top {
@@ -132,10 +134,8 @@ row.settings-sidebar-row:hover {
 row.settings-sidebar-row:selected,
 row.settings-sidebar-row:selected:hover {
     background-color: #0a84ff;
-    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.20), rgba(255, 255, 255, 0));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.40),
-                inset 0 0 0 0.5px rgba(190, 225, 255, 0.45),
-                0 1px 3px rgba(0, 70, 190, 0.30);
+    background-image: none;
+    box-shadow: none;
     color: #ffffff;
 }
 .settings-sidebar-icon {
@@ -535,9 +535,15 @@ popover.lunar-menu-popover > contents {
     outline: none;
     background: transparent;
 }
+/* Blurred menus: no shadow room, so the popup surface is exactly the painted
+   body and the compositor blur region (the whole surface) cannot overshoot it.
+   Must out-rank the generated shadow-room rule in glass_config::css. */
+popover.lunar-menu-popover.lunar-blurred-popover > contents {
+    box-shadow: none;
+}
 .lunar-system-menu {
     min-width: 220px;
-    padding: 6px 6px;
+    padding: 6px;
     background: none;
     border: none;
     box-shadow: none;
@@ -545,10 +551,11 @@ popover.lunar-menu-popover > contents {
     text-shadow: 0 0.5px 1px rgba(0, 20, 60, 0.28);
 }
 button.lunar-menu-item {
-    min-height: 25px;
-    padding: 1px 9px;
+    min-height: 24px;
+    padding: 0 10px;
     border: none;
-    border-radius: 7px;
+    border-radius: 6px;
+    font-size: 13px;
     background: transparent;
     background-image: none;
     color: rgba(255, 255, 255, 0.96);
@@ -566,16 +573,16 @@ button.lunar-menu-item:disabled {
 }
 .lunar-menu-separator {
     min-height: 1px;
-    margin: 4px 6px;
+    margin: 5px 10px;
     background-color: rgba(255, 255, 255, 0.20);
 }
 .lunar-system-menu.dock-context-menu {
     min-width: 180px;
-    padding: 3px;
+    padding: 6px;
 }
 .lunar-system-menu.dock-context-submenu {
     min-width: 190px;
-    padding: 3px;
+    padding: 6px;
 }
 /* The little arrow pointing from the Dock menu at its icon. */
 popover.lunar-menu-popover.dock-context-popover > arrow,
@@ -594,30 +601,30 @@ popover.lunar-menu-popover.dock-label-popover > arrow {
 }
 .lunar-system-menu.active-app-menu {
     min-width: 200px;
-    padding: 3px;
+    padding: 6px;
 }
 .active-app-menu button.lunar-menu-item {
-    min-height: 23px;
-    padding: 0 7px;
-    font-size: 12px;
+    min-height: 24px;
+    padding: 0 10px;
+    font-size: 13px;
 }
 button.lunar-context-menu-item {
-    min-height: 23px;
-    padding: 0 6px;
-    border-radius: 5px;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 6px;
     font-size: 13px;
 }
 .lunar-context-menu-arrow {
     margin-left: 10px;
 }
 .lunar-context-menu-separator {
-    margin: 2px 5px;
+    margin: 5px 10px;
 }
 .active-app-menu searchentry.lunar-help-search {
-    min-height: 22px;
-    margin: 2px 3px 4px 3px;
-    padding: 0 6px;
-    font-size: 12px;
+    min-height: 24px;
+    margin: 0 0 5px 0;
+    padding: 0 10px;
+    font-size: 13px;
     border-radius: 6px;
 }
 
@@ -626,8 +633,11 @@ window.lunar-settings-window.dark-mode {
     background-color: transparent;
     color: #f2f2f4;
 }
+/* Dark mode: the same dark tint the About window uses. */
 .dark-mode .settings-sidebar {
-    background-color: rgba(38, 38, 42, 0.84);
+    background-color: rgba(40, 40, 44, 0.90);
+    background-image: none;
+    box-shadow: none;
     border-right-color: rgba(255, 255, 255, 0.07);
 }
 .dark-mode .settings-content,
@@ -648,10 +658,12 @@ image.settings-sidebar-icon.dark-mode {
 .dark-mode .settings-search {
     background-color: rgba(255, 255, 255, 0.075);
     border-color: rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
     color: #f5f5f7;
 }
 .dark-mode .settings-search:focus-within {
     background-color: rgba(57, 57, 61, 0.98);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.28);
 }
 .dark-mode .settings-section-heading {
     color: #f5f5f7;
@@ -723,6 +735,8 @@ image.settings-sidebar-icon.dark-mode {
 .dark-mode row.settings-sidebar-row:selected,
 .dark-mode row.settings-sidebar-row:selected:hover {
     background-color: #0a84ff;
+    background-image: none;
+    box-shadow: none;
     color: #ffffff;
 }
 .dock-separator.dark-mode {
@@ -731,7 +745,7 @@ image.settings-sidebar-icon.dark-mode {
 /* ---- Wallpaper picker (settings.rs) and desktop context menu ------------ */
 .lunar-system-menu.desktop-context-menu {
     min-width: 190px;
-    padding: 3px;
+    padding: 6px;
 }
 .wallpaper-grid flowboxchild {
     padding: 0;
@@ -773,7 +787,7 @@ button.wallpaper-add {
 /* ---- Wi-Fi menu (see menubar.rs `wifi_menu`) ----------------------------- */
 .lunar-system-menu.wifi-menu {
     min-width: 0;
-    padding: 4px;
+    padding: 6px;
 }
 .wifi-menu .wifi-title {
     font-size: 12px;
@@ -781,23 +795,23 @@ button.wallpaper-add {
     color: #ffffff;
 }
 .wifi-menu .lunar-menu-separator {
-    margin: 3px 3px;
+    margin: 5px 10px;
 }
 .wifi-menu .wifi-section-title {
-    margin: 3px 6px 3px 6px;
+    margin: 3px 10px 3px 10px;
     font-size: 12px;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.62);
 }
 .wifi-menu .wifi-status {
-    margin: 0 6px;
+    margin: 0 10px;
     font-size: 12px;
     color: rgba(255, 255, 255, 0.62);
 }
 .wifi-menu button.lunar-menu-item {
     min-height: 24px;
-    padding: 0 6px;
-    font-size: 12px;
+    padding: 0 10px;
+    font-size: 13px;
 }
 .wifi-dropdown {
     padding: 0 0 0 6px;
@@ -1017,14 +1031,13 @@ menubutton.lunar-menubar-item-button > button:checked {
     background-image: none;
     box-shadow: none;
 }
-/* An open bar menu: a clear glass capsule behind the title. */
+/* An open bar menu: a flat translucent capsule behind the title, like macOS
+   (no rim, no inner highlight, no gradient, no drop shadow). */
 menubutton.lunar-menubar-item-button > button:checked {
-    background-color: rgba(255, 255, 255, 0.20);
-    background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.03));
-    box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.50),
-                inset 0 1px 0 rgba(255, 255, 255, 0.40),
-                0 1px 4px rgba(0, 30, 90, 0.16);
-    border-radius: 11px;
+    background-color: rgba(255, 255, 255, 0.22);
+    background-image: none;
+    box-shadow: none;
+    border-radius: 999px;
 }
 
 
@@ -1231,6 +1244,312 @@ menubutton.lunar-menubar-item-button > button:checked {
     font-size: 12px;
     font-weight: 500;
     color: #c9ebff;
+}
+/* ---- Launchpad (launchpad.rs) -------------------------------------------- */
+window.lunar-launchpad {
+    background: transparent;
+}
+.launchpad-root {
+    background: transparent;
+}
+/* The title / search capsule floating above the panel: near-black at the top,
+   fading to a translucent blue-violet towards the lower right. */
+.launchpad-capsule {
+    padding: 0 34px;
+    border-radius: 999px;
+    background-color: transparent;
+    background-image: linear-gradient(165deg, rgba(2, 2, 7, 0.78) 0%, rgba(4, 7, 20, 0.62) 50%, rgba(26, 20, 50, 0.28) 100%);
+    box-shadow: none;
+    color: rgba(150, 160, 200, 0.85);
+}
+.launchpad-capsule-icon {
+    opacity: 0.55;
+}
+.launchpad-more {
+    opacity: 0.7;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(150, 160, 200, 0.9);
+}
+entry.launchpad-search,
+entry.launchpad-search:focus-within {
+    min-height: 38px;
+    padding: 0;
+    border: none;
+    background: none;
+    box-shadow: none;
+    outline: none;
+    font-size: 24px;
+    font-weight: 400;
+    color: rgba(235, 238, 255, 0.95);
+    caret-color: #ffffff;
+}
+entry.launchpad-search > text > placeholder {
+    opacity: 1;
+    color: rgba(150, 160, 200, 0.88);
+}
+/* The glass panel: the same dark tint as the capsule, always light text. */
+.launchpad-panel {
+    padding: 16px 20px 0 20px;
+    border-radius: 30px;
+    background-color: transparent;
+    background-image: linear-gradient(165deg, rgba(2, 2, 7, 0.72) 0%, rgba(4, 7, 20, 0.56) 50%, rgba(26, 20, 50, 0.30) 100%);
+    color: rgba(255, 255, 255, 0.92);
+}
+.launchpad-panel label {
+    color: rgba(255, 255, 255, 0.92);
+}
+.launchpad-chip-scroller,
+.launchpad-scroller,
+.launchpad-list {
+    background: transparent;
+}
+.launchpad-chip-scroller {
+    padding-bottom: 12px;
+}
+button.launchpad-chip {
+    min-height: 26px;
+    padding: 0 13px;
+    border: none;
+    border-radius: 9px;
+    background-color: rgba(255, 255, 255, 0.10);
+    background-image: none;
+    box-shadow: none;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.72);
+}
+button.launchpad-chip.selected {
+    background-color: rgba(255, 255, 255, 0.26);
+    color: #ffffff;
+}
+.launchpad-list {
+    padding-bottom: 16px;
+}
+separator.launchpad-separator {
+    min-height: 1px;
+    margin: 10px 0;
+    background-color: rgba(255, 255, 255, 0.16);
+}
+button.launchpad-app {
+    padding: 6px 2px 4px 2px;
+    border: none;
+    border-radius: 12px;
+    background: none;
+    background-image: none;
+    box-shadow: none;
+    color: inherit;
+}
+button.launchpad-app:hover,
+button.launchpad-app:active,
+button.launchpad-app:focus {
+    background: none;
+    background-image: none;
+    box-shadow: none;
+    outline: none;
+}
+label.launchpad-app-label {
+    font-size: 11px;
+    text-shadow: none;
+}
+
+/* ---- Settings: Wi-Fi page ---- */
+.wifi-header-row {
+    padding: 12px 14px;
+}
+.wifi-subtitle {
+    margin-top: 1px;
+}
+.wifi-subtitle link,
+.wifi-subtitle link:visited {
+    color: #0a84ff;
+    text-decoration: none;
+}
+.wifi-connected-row {
+    padding: 10px 14px;
+}
+.wifi-row {
+    padding: 7px 14px;
+    min-height: 24px;
+}
+.wifi-glyph {
+    color: rgba(0, 0, 0, 0.85);
+}
+.dark-mode .wifi-glyph {
+    color: rgba(255, 255, 255, 0.92);
+}
+.wifi-dot {
+    min-width: 7px;
+    min-height: 7px;
+    border-radius: 4px;
+    background-color: #30d158;
+}
+.wifi-status-text {
+    font-size: 12px;
+    color: rgba(60, 60, 67, 0.60);
+}
+.dark-mode .wifi-status-text {
+    color: rgba(235, 235, 245, 0.60);
+}
+.wifi-action {
+    min-height: 0;
+    padding: 3px 12px;
+    border-radius: 7px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background-image: none;
+    background-color: #ffffff;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.06);
+    font-size: 13px;
+    color: #1d1d1f;
+}
+.wifi-action:hover {
+    background-color: #f2f2f4;
+}
+.wifi-action:active {
+    background-color: #e6e6e9;
+}
+.dark-mode .wifi-action {
+    border-color: rgba(255, 255, 255, 0.10);
+    background-color: rgba(255, 255, 255, 0.14);
+    box-shadow: none;
+    color: #ffffff;
+}
+.dark-mode .wifi-action:hover {
+    background-color: rgba(255, 255, 255, 0.19);
+}
+.dark-mode .wifi-action:active {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+.wifi-group .settings-row-separator {
+    margin: 0 10px;
+}
+.wifi-other-button {
+    margin-top: 2px;
+}
+.wifi-more {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 9px;
+    background: none;
+    background-color: transparent;
+    box-shadow: none;
+}
+.wifi-more:hover,
+.wifi-more:active {
+    background-color: transparent;
+}
+
+/* ---- Settings: Bluetooth page ---- */
+.bt-discoverable {
+    padding: 10px 14px;
+}
+.bt-empty-row {
+    padding: 12px 14px;
+}
+.bt-empty {
+    color: rgba(60, 60, 67, 0.60);
+}
+.dark-mode .bt-empty {
+    color: rgba(235, 235, 245, 0.60);
+}
+.bt-row {
+    padding: 8px 14px;
+}
+.bt-device-icon {
+    color: #0a84ff;
+}
+.bt-help {
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    min-width: 28px;
+    min-height: 28px;
+    border-radius: 14px;
+    border: none;
+    background-image: none;
+    background-color: rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.7);
+}
+.dark-mode .bt-help {
+    background-color: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.85);
+}
+.bt-spinner {
+    color: rgba(60, 60, 67, 0.6);
+}
+.dark-mode .bt-spinner {
+    color: rgba(235, 235, 245, 0.6);
+}
+
+/* ---- Settings: Displays page ---- */
+.displays-header {
+    margin: 0 -20px 12px -20px;
+    padding: 18px 20px 12px 20px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.10);
+}
+.dark-mode .displays-header {
+    border-bottom-color: rgba(255, 255, 255, 0.10);
+}
+.displays-name {
+    font-weight: 700;
+}
+.displays-add {
+    padding: 4px 12px;
+    min-height: 22px;
+}
+.displays-res-card {
+    padding: 8px 10px 4px 10px;
+}
+.displays-res-row {
+    padding: 8px 10px;
+    border-radius: 2px;
+}
+.displays-res-list .settings-row-separator {
+    margin: 0 20px;
+}
+.displays-res-selected {
+    background-color: rgba(0, 0, 0, 0.10);
+}
+.dark-mode .displays-res-selected {
+    background-color: rgba(255, 255, 255, 0.28);
+}
+.displays-show-all {
+    padding: 10px 10px 8px 10px;
+}
+
+/* ---- Settings: Software Update sub-page ---- */
+.su-top-row {
+    padding: 12px 14px;
+}
+.su-title {
+    font-size: 15px;
+}
+.su-text {
+    font-size: 13px;
+}
+.su-value {
+    color: rgba(60, 60, 67, 0.60);
+    font-size: 15px;
+}
+.dark-mode .su-value {
+    color: rgba(235, 235, 245, 0.60);
+}
+.su-text link,
+.su-text link:visited {
+    color: #0a84ff;
+}
+
+window.displays-confirm {
+    background-color: #f5f5f7;
+    color: #1d1d1f;
+}
+window.displays-confirm.dark-mode {
+    background-color: #2b2b2f;
+    color: #ffffff;
 }
 ";
 
