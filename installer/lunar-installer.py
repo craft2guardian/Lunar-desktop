@@ -371,10 +371,6 @@ window.installer {
 .light.close { background-color: #ff5f57; }
 .light.minimize, .light.maximize { background-color: rgba(255, 255, 255, 0.18); }
 
-.logo {
-    border-radius: 50%;
-    box-shadow: 0 8px 28px rgba(60, 50, 170, 0.50);
-}
 .logo-fallback {
     background-image: radial-gradient(circle at 30% 25%, #6f8cff 0%, #3b44d8 45%, #161a63 100%);
     box-shadow: 0 6px 22px rgba(20, 26, 110, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.22);
@@ -1524,20 +1520,30 @@ def _logo_texture():
 _LOGO_TEXTURE = None
 
 
+class LogoImage(Gtk.Widget):
+    """Draws the logo texture at exactly size x size, centred, no matter how
+    large the image file is (Gtk.Picture would grow to the image's own size)."""
+
+    def __init__(self, texture, size):
+        super().__init__(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER,
+                         hexpand=False, vexpand=False)
+        self.texture = texture
+        self.size = size
+
+    def do_measure(self, orientation, for_size):
+        return self.size, self.size, -1, -1
+
+    def do_snapshot(self, snapshot):
+        self.texture.snapshot(snapshot, self.size, self.size)
+
+
 def logo(size):
     """The Lunar logo, drawn from the embedded PNG (CSS moon if it can't load)."""
     global _LOGO_TEXTURE
     if _LOGO_TEXTURE is None:
         _LOGO_TEXTURE = _logo_texture()
     if _LOGO_TEXTURE is not None:
-        picture = Gtk.Picture.new_for_paintable(_LOGO_TEXTURE)
-        picture.set_can_shrink(True)
-        picture.set_content_fit(Gtk.ContentFit.CONTAIN)
-        picture.set_size_request(size, size)
-        outer = widget(Gtk.Box, "logo", halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
-        outer.set_size_request(size, size)
-        outer.append(picture)
-        return outer
+        return LogoImage(_LOGO_TEXTURE, size)
     outer = widget(Gtk.Box, "logo", "logo-fallback", halign=Gtk.Align.CENTER)
     outer.set_size_request(size, size)
     moon = widget(Gtk.Box, "logo-moon", halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
@@ -1580,7 +1586,7 @@ class Installer(Gtk.Window):
         self.options = {"glass": True, "icons": True}
 
         self.set_titlebar(self._lights())
-        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, transition_duration=220)
+        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.NONE)
         self.set_child(self.stack)
         self.stack.add_named(self._welcome_page(), "welcome")
         self.stack.add_named(self._options_page(), "options")
@@ -1633,8 +1639,8 @@ class Installer(Gtk.Window):
         box.append(logo(150))
         box.append(widget(Gtk.Box, margin_top=10))
         box.append(label("Lunar Desktop", "installer-title"))
-        box.append(label("A calm desktop for KDE Plasma, with a menu bar, a dock and "
-                         "Liquid Glass surfaces.", "installer-text", width=46))
+        box.append(label("Lunar Desktop will be installed on this computer."
+                         "", "installer-text", width=46))
         return self._page(spacer(), box, spacer(),
                           self._buttons(self._pill("Continue", lambda: self.show("options"), True)))
 
@@ -1663,7 +1669,7 @@ class Installer(Gtk.Window):
         card.append(self._option_row("lunar", "L", "Lunar desktop",
                                      "The shell, session entry and dock icons. Always installed."))
         card.append(widget(Gtk.Box, "row-sep"))
-        card.append(self._option_row("glass", "◐", "KWin glass effect",
+        card.append(self._option_row("glass", "◐", "Liquid glass effect (Recomended)",
                                      "Blur and refraction for the dock and windows. Built from source.", "glass"))
         card.append(widget(Gtk.Box, "row-sep"))
         card.append(self._option_row("icons", "◆", "WhiteSur icon theme",
