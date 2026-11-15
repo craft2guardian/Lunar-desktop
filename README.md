@@ -124,6 +124,27 @@ cargo build --release
 If the session does not provide Plasma shell surfaces, the program exits with an
 explanatory message.
 
+## Graphical installer
+
+`installer/lunar-installer.py` is a one-file GTK 4 installer (needs only Python 3
+with PyGObject, which Fedora KDE ships) that works on top of any desktop. It
+installs the build tools, downloads and builds Lunar from GitHub, optionally
+builds the KWin glass effect and installs the WhiteSur icon theme, then adds the
+Lunar entry to the login screen. It asks for your password twice (`pkexec`) and
+saves its log to `~/.cache/lunar-installer/install.log`.
+
+    python3 installer/lunar-installer.py            # install (Fedora, dnf)
+    python3 installer/lunar-installer.py --demo     # click through, changes nothing
+
+`installer/Install-Lunar.sh` is the same installer as one self-contained file for
+other people: it checks that GTK 4 is available (offering to install it on
+Fedora), shows problems in dialog boxes, and runs by double-click once marked
+executable. Rebuild it after editing the installer with
+`sh installer/make-single-file.sh`.
+
+The repositories it clones can be overridden with `LUNAR_REPO`,
+`LUNAR_GLASS_REPO` and `LUNAR_ICONS_REPO`.
+
 ## Limitations of this first implementation
 
 - **It is not a window manager or a system-wide menu bar.** It creates three KDE
